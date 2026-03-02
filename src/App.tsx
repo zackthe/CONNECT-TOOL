@@ -909,7 +909,7 @@ export default function App() {
       </AnimatePresence>
 
       <footer className="py-8 text-center text-[10px] text-muted uppercase tracking-[0.3em] font-medium opacity-50">
-        ECM Synchronized Connect &bull; v2.0 &bull; {new Date().getFullYear()}
+        CREATED BY ZAKARIAE BELKASMI  &bull; v2.0 &bull; {new Date().getFullYear()}
       </footer>
     </div>
   );
@@ -1517,3 +1517,4 @@ const PresetManager = ({ presets, onSave, onLoad, onDelete }: { presets: Preset[
     </div>
   </div>
 );
+
