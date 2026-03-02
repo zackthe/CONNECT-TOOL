@@ -1,0 +1,5 @@
+{
+  "name": "ECM Synchronized Connect",
+  "description": "A professional tool for generating synchronized connect configurations with User Agents and Proxies for ECM entities.",
+  "requestFramePermissions": []
+}
