@@ -19,7 +19,9 @@ import {
   FileText,
   X,
   Edit3,
-  Layout
+  Layout,
+  ShieldAlert,
+  List
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -909,7 +911,7 @@ export default function App() {
       </AnimatePresence>
 
       <footer className="py-8 text-center text-[10px] text-muted uppercase tracking-[0.3em] font-medium opacity-50">
-        CREATED BY ZAKARIAE BELKASMI  &bull; v2.0 &bull; {new Date().getFullYear()}
+        ECM Synchronized Connect &bull; v2.0 &bull; {new Date().getFullYear()}
       </footer>
     </div>
   );
@@ -933,10 +935,18 @@ const Reporting = ({
   setNewProxyList: (val: string) => void
 }) => {
   const [filter, setFilter] = useState<'all' | 'closed' | 'proxy_down'>('all');
+  const [sessionFilter, setSessionFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [replacementOutput, setReplacementOutput] = useState('');
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const showCopyFeedback = (key: string) => {
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2000);
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1030,6 +1040,13 @@ const Reporting = ({
     setReportData(items);
   };
 
+  const uniqueSessions = useMemo(() => {
+    const sessions = reportData
+      .map(i => i.sessionName?.split('(')[0].trim())
+      .filter(Boolean);
+    return Array.from(new Set(sessions)).sort();
+  }, [reportData]);
+
   const filteredData = useMemo(() => {
     return reportData.filter(item => {
       const matchesSearch = 
@@ -1039,11 +1056,14 @@ const Reporting = ({
       
       if (!matchesSearch) return false;
       
+      const cleanSession = item.sessionName?.split('(')[0].trim();
+      if (sessionFilter !== 'all' && cleanSession !== sessionFilter) return false;
+      
       if (filter === 'closed') return item.status?.toLowerCase() === 'closed';
       if (filter === 'proxy_down') return item.cnxProblems?.toLowerCase().includes('proxy down');
       return true;
     });
-  }, [reportData, filter, search]);
+  }, [reportData, filter, sessionFilter, search]);
 
   const stats = useMemo(() => {
     return {
@@ -1056,7 +1076,33 @@ const Reporting = ({
   const copyProxies = () => {
     const proxies = filteredData.map(i => i.proxy).filter(Boolean).join('\n');
     navigator.clipboard.writeText(proxies);
-    alert('Proxies copied to clipboard!');
+    showCopyFeedback('proxies');
+  };
+
+  const copyProxyDownProfiles = () => {
+    const profiles = filteredData
+      .filter(i => i.cnxProblems?.toLowerCase().includes('proxy down'))
+      .map(i => i.profileName)
+      .filter(Boolean)
+      .join('\n');
+    
+    if (!profiles) return;
+    
+    navigator.clipboard.writeText(profiles);
+    showCopyFeedback('down_ids');
+  };
+
+  const copySessionNames = () => {
+    const sessions = Array.from(new Set(
+      filteredData
+        .map(i => i.sessionName?.split('(')[0].trim())
+        .filter(Boolean)
+    )).join('\n');
+    
+    if (!sessions) return;
+    
+    navigator.clipboard.writeText(sessions);
+    showCopyFeedback('sessions');
   };
 
   const generateReplacement = () => {
@@ -1078,7 +1124,7 @@ const Reporting = ({
 
   const copyReplacement = () => {
     navigator.clipboard.writeText(replacementOutput);
-    alert('Replacement output copied!');
+    showCopyFeedback('replacement');
   };
 
   return (
@@ -1151,6 +1197,10 @@ const Reporting = ({
                 onChange={e => setNewProxyList(e.target.value)}
                 className="min-h-[150px]"
               />
+              <div className="flex justify-between items-center px-1 py-1 mt-1 border-b border-white/5">
+                <span className="text-[9px] text-muted uppercase font-bold tracking-widest">Proxies Provided</span>
+                <span className="text-xs font-black text-accent">{newProxyList.split('\n').filter(p => p.trim()).length}</span>
+              </div>
               <p className="text-[9px] text-muted mt-2 italic">These will be mapped to the filtered profiles below.</p>
             </div>
 
@@ -1167,11 +1217,25 @@ const Reporting = ({
                 <div className="p-3 bg-black/40 rounded-xl border border-white/5 font-mono text-[10px] text-emerald-400 whitespace-pre max-h-[200px] overflow-auto">
                   {replacementOutput}
                 </div>
+                
+                <div className="flex justify-between items-center px-1 py-1 border-b border-white/5">
+                  <span className="text-[9px] text-muted uppercase font-bold tracking-widest">Profiles Affected</span>
+                  <span className="text-xs font-black text-emerald-400">{replacementOutput.split('\n').filter(Boolean).length}</span>
+                </div>
+
                 <button 
                   onClick={copyReplacement}
-                  className="w-full py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[10px] font-bold uppercase tracking-widest text-white transition-all flex items-center justify-center gap-2"
+                  className={`w-full py-2 border rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                    copiedKey === 'replacement' 
+                      ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' 
+                      : 'bg-white/5 hover:bg-white/10 border-white/10 text-white'
+                  }`}
                 >
-                  <Copy className="w-3 h-3" /> Copy Output
+                  {copiedKey === 'replacement' ? (
+                    <><Check className="w-3 h-3" /> Copied!</>
+                  ) : (
+                    <><Copy className="w-3 h-3" /> Copy Output</>
+                  )}
                 </button>
               </div>
             )}
@@ -1224,11 +1288,42 @@ const Reporting = ({
               </div>
               <div className="flex items-center gap-2">
                 <button 
+                  onClick={copyProxyDownProfiles}
+                  disabled={filteredData.length === 0}
+                  className={`px-4 py-2 border rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 disabled:opacity-30 ${
+                    copiedKey === 'down_ids'
+                      ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
+                      : 'bg-red-500/10 hover:bg-red-500/20 border-red-500/30 text-red-500'
+                  }`}
+                  title="Copy Profile IDs for filtered 'Proxy Down' items"
+                >
+                  {copiedKey === 'down_ids' ? <Check className="w-3 h-3" /> : <ShieldAlert className="w-3 h-3" />}
+                  {copiedKey === 'down_ids' ? 'Copied!' : 'Copy Down IDs'}
+                </button>
+                <button 
+                  onClick={copySessionNames}
+                  disabled={filteredData.length === 0}
+                  className={`px-4 py-2 border rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 disabled:opacity-30 ${
+                    copiedKey === 'sessions'
+                      ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
+                      : 'bg-white/5 hover:bg-white/10 border-white/10 text-muted hover:text-white'
+                  }`}
+                  title="Copy session names of filtered items"
+                >
+                  {copiedKey === 'sessions' ? <Check className="w-3 h-3" /> : <List className="w-3 h-3" />}
+                  {copiedKey === 'sessions' ? 'Copied!' : 'Copy Sessions'}
+                </button>
+                <button 
                   onClick={copyProxies}
                   disabled={filteredData.length === 0}
-                  className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[10px] font-bold uppercase tracking-widest text-muted hover:text-white transition-all flex items-center gap-2 disabled:opacity-30"
+                  className={`px-4 py-2 border rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 disabled:opacity-30 ${
+                    copiedKey === 'proxies'
+                      ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
+                      : 'bg-white/5 hover:bg-white/10 border-white/10 text-muted hover:text-white'
+                  }`}
                 >
-                  <Copy className="w-3 h-3" /> Copy Proxies
+                  {copiedKey === 'proxies' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                  {copiedKey === 'proxies' ? 'Copied!' : 'Copy Proxies'}
                 </button>
               </div>
             </div>
@@ -1238,7 +1333,21 @@ const Reporting = ({
                 <thead className="sticky top-0 bg-[#141b2d] z-10">
                   <tr className="border-b border-white/10">
                     <th className="p-4 text-[10px] uppercase tracking-widest text-muted font-bold">Profile</th>
-                    <th className="p-4 text-[10px] uppercase tracking-widest text-muted font-bold">Session</th>
+                    <th className="p-4 text-[10px] uppercase tracking-widest text-muted font-bold">
+                      <div className="flex items-center gap-2">
+                        Session
+                        <select 
+                          value={sessionFilter}
+                          onChange={e => setSessionFilter(e.target.value)}
+                          className="bg-[#0c1428] border border-white/20 rounded px-2 py-0.5 text-[10px] font-bold text-white outline-none cursor-pointer hover:border-accent/50 transition-colors"
+                        >
+                          <option value="all" className="bg-[#0c1428] text-white">ALL SESSIONS</option>
+                          {uniqueSessions.map(s => (
+                            <option key={s} value={s} className="bg-[#0c1428] text-white">{s}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </th>
                     <th className="p-4 text-[10px] uppercase tracking-widest text-muted font-bold">Status</th>
                     <th className="p-4 text-[10px] uppercase tracking-widest text-muted font-bold">Problems</th>
                     <th className="p-4 text-[10px] uppercase tracking-widest text-muted font-bold">Proxy</th>
@@ -1517,4 +1626,3 @@ const PresetManager = ({ presets, onSave, onLoad, onDelete }: { presets: Preset[
     </div>
   </div>
 );
-
