@@ -1049,11 +1049,15 @@ const Reporting = ({
   }, [reportData]);
 
   const filteredData = useMemo(() => {
+    const lowerSearch = search.toLowerCase();
     return reportData.filter(item => {
       const matchesSearch = 
-        item.profileName?.toLowerCase().includes(search.toLowerCase()) ||
-        item.sessionName?.toLowerCase().includes(search.toLowerCase()) ||
-        item.proxy?.toLowerCase().includes(search.toLowerCase());
+        !search || 
+        (item.profileName?.toLowerCase() || '').includes(lowerSearch) ||
+        (item.tag?.toLowerCase() || '').includes(lowerSearch) ||
+        (item.sessionName?.toLowerCase() || '').includes(lowerSearch) ||
+        (item.proxy?.toLowerCase() || '').includes(lowerSearch) ||
+        (item.status?.toLowerCase() || '').includes(lowerSearch);
       
       if (!matchesSearch) return false;
       
@@ -1364,14 +1368,14 @@ const Reporting = ({
                     </button>
                   ))}
                 </div>
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" />
+                <div className="relative group">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted group-focus-within:text-accent transition-colors" />
                   <input 
                     type="text"
-                    placeholder="Search..."
+                    placeholder="Search profiles, tags, proxies..."
                     value={search}
                     onChange={e => setSearch(e.target.value)}
-                    className="bg-black/20 border border-white/5 rounded-lg pl-8 pr-3 py-1.5 text-xs outline-none focus:border-accent/30 transition-all w-40"
+                    className="bg-black/20 border border-white/5 rounded-lg pl-8 pr-3 py-1.5 text-xs outline-none focus:border-accent/30 focus:bg-black/40 transition-all w-64"
                   />
                 </div>
               </div>
