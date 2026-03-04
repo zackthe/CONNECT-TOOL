@@ -911,7 +911,7 @@ export default function App() {
       </AnimatePresence>
 
       <footer className="py-8 text-center text-[10px] text-muted uppercase tracking-[0.3em] font-medium opacity-50">
-        CREATED BY ZAKARIAE BELKASMI &bull; v2.0 &bull; {new Date().getFullYear()}
+        ECM Synchronized Connect &bull; v2.0 &bull; {new Date().getFullYear()}
       </footer>
     </div>
   );
@@ -934,7 +934,7 @@ const Reporting = ({
   newProxyList: string,
   setNewProxyList: (val: string) => void
 }) => {
-  const [filter, setFilter] = useState<'all' | 'closed' | 'proxy_down'>('all');
+  const [filter, setFilter] = useState<'all' | 'closed' | 'proxy_down' | 'failed'>('all');
   const [sessionFilter, setSessionFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
   const [isDragging, setIsDragging] = useState(false);
@@ -1061,6 +1061,7 @@ const Reporting = ({
       
       if (filter === 'closed') return item.status?.toLowerCase() === 'closed';
       if (filter === 'proxy_down') return item.cnxProblems?.toLowerCase().includes('proxy down');
+      if (filter === 'failed') return item.status?.toLowerCase() === 'failed';
       return true;
     });
   }, [reportData, filter, sessionFilter, search]);
@@ -1069,7 +1070,8 @@ const Reporting = ({
     return {
       total: reportData.length,
       closed: reportData.filter(i => i.status?.toLowerCase() === 'closed').length,
-      proxyDown: reportData.filter(i => i.cnxProblems?.toLowerCase().includes('proxy down')).length
+      proxyDown: reportData.filter(i => i.cnxProblems?.toLowerCase().includes('proxy down')).length,
+      failed: reportData.filter(i => i.status?.toLowerCase() === 'failed').length
     };
   }, [reportData]);
 
@@ -1090,6 +1092,19 @@ const Reporting = ({
     
     navigator.clipboard.writeText(profiles);
     showCopyFeedback('down_ids');
+  };
+
+  const copyFailedProfiles = () => {
+    const profiles = filteredData
+      .filter(i => i.status?.toLowerCase() === 'failed')
+      .map(i => i.profileName)
+      .filter(Boolean)
+      .join('\n');
+    
+    if (!profiles) return;
+    
+    navigator.clipboard.writeText(profiles);
+    showCopyFeedback('failed_ids');
   };
 
   const copySessionNames = () => {
@@ -1245,9 +1260,9 @@ const Reporting = ({
         {/* Right Column: Analysis Area */}
         <div className="lg:col-span-8 space-y-6">
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
             <Card className="p-4 flex flex-col items-center justify-center text-center border-l-4 border-l-accent">
-              <div className="text-[10px] text-muted uppercase tracking-widest font-bold mb-1">Total Profiles</div>
+              <div className="text-[10px] text-muted uppercase tracking-widest font-bold mb-1">Total</div>
               <div className="text-2xl font-black text-white">{stats.total}</div>
             </Card>
             <Card className="p-4 flex flex-col items-center justify-center text-center border-l-4 border-l-amber-500">
@@ -1258,6 +1273,10 @@ const Reporting = ({
               <div className="text-[10px] text-muted uppercase tracking-widest font-bold mb-1">Proxy Down</div>
               <div className="text-2xl font-black text-red-500">{stats.proxyDown}</div>
             </Card>
+            <Card className="p-4 flex flex-col items-center justify-center text-center border-l-4 border-l-rose-600">
+              <div className="text-[10px] text-muted uppercase tracking-widest font-bold mb-1">Failed</div>
+              <div className="text-2xl font-black text-rose-600">{stats.failed}</div>
+            </Card>
           </div>
 
           {/* Table Card */}
@@ -1265,7 +1284,7 @@ const Reporting = ({
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
               <div className="flex items-center gap-4">
                 <div className="flex bg-black/20 p-1 rounded-lg border border-white/5">
-                  {(['all', 'closed', 'proxy_down'] as const).map(f => (
+                  {(['all', 'closed', 'proxy_down', 'failed'] as const).map(f => (
                     <button
                       key={f}
                       onClick={() => setFilter(f)}
@@ -1287,6 +1306,19 @@ const Reporting = ({
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                <button 
+                  onClick={copyFailedProfiles}
+                  disabled={filteredData.length === 0}
+                  className={`px-4 py-2 border rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 disabled:opacity-30 ${
+                    copiedKey === 'failed_ids'
+                      ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
+                      : 'bg-rose-600/10 hover:bg-rose-600/20 border-rose-600/30 text-rose-600'
+                  }`}
+                  title="Copy Profile IDs for filtered 'Failed' items"
+                >
+                  {copiedKey === 'failed_ids' ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                  {copiedKey === 'failed_ids' ? 'Copied!' : 'Copy Failed IDs'}
+                </button>
                 <button 
                   onClick={copyProxyDownProfiles}
                   disabled={filteredData.length === 0}
@@ -1362,12 +1394,22 @@ const Reporting = ({
                       </td>
                       <td className="p-4 text-[10px] text-muted">{item.sessionName}</td>
                       <td className="p-4">
-                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${item.status?.toLowerCase() === 'closed' ? 'bg-amber-500/20 text-amber-500' : 'bg-emerald-500/20 text-emerald-500'}`}>
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                          item.status?.toLowerCase() === 'closed' 
+                            ? 'bg-amber-500/20 text-amber-500' 
+                            : item.status?.toLowerCase() === 'failed'
+                            ? 'bg-rose-600/20 text-rose-600'
+                            : 'bg-emerald-500/20 text-emerald-500'
+                        }`}>
                           {item.status}
                         </span>
                       </td>
                       <td className="p-4">
-                        {item.cnxProblems ? (
+                        {item.status?.toLowerCase() === 'failed' ? (
+                          <div className="text-[9px] text-rose-400 font-medium max-w-[250px] break-words" title={item.log}>
+                            {item.log}
+                          </div>
+                        ) : item.cnxProblems ? (
                           <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${item.cnxProblems.toLowerCase().includes('proxy down') ? 'bg-red-500/20 text-red-500' : 'bg-white/10 text-muted'}`}>
                             {item.cnxProblems}
                           </span>
