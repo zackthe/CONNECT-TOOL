@@ -91,6 +91,7 @@ interface ReportItem {
   profileName: string;
   tag: string;
   status: string;
+  log: string;
   cnxProblems: string;
   sessionName: string;
   proxy: string;
@@ -934,7 +935,7 @@ const Reporting = ({
   newProxyList: string,
   setNewProxyList: (val: string) => void
 }) => {
-  const [filter, setFilter] = useState<'all' | 'closed' | 'proxy_down' | 'failed'>('all');
+  const [filter, setFilter] = useState<'all' | 'closed' | 'proxy_down' | 'failed' | 'disconnected'>('all');
   const [sessionFilter, setSessionFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
   const [isDragging, setIsDragging] = useState(false);
@@ -1062,6 +1063,7 @@ const Reporting = ({
       if (filter === 'closed') return item.status?.toLowerCase() === 'closed';
       if (filter === 'proxy_down') return item.cnxProblems?.toLowerCase().includes('proxy down');
       if (filter === 'failed') return item.status?.toLowerCase() === 'failed';
+      if (filter === 'disconnected') return item.status?.toLowerCase() === 'completed' && item.log?.toLowerCase().includes('disconnected profile');
       return true;
     });
   }, [reportData, filter, sessionFilter, search]);
@@ -1071,7 +1073,8 @@ const Reporting = ({
       total: reportData.length,
       closed: reportData.filter(i => i.status?.toLowerCase() === 'closed').length,
       proxyDown: reportData.filter(i => i.cnxProblems?.toLowerCase().includes('proxy down')).length,
-      failed: reportData.filter(i => i.status?.toLowerCase() === 'failed').length
+      failed: reportData.filter(i => i.status?.toLowerCase() === 'failed').length,
+      disconnected: reportData.filter(i => i.status?.toLowerCase() === 'completed' && i.log?.toLowerCase().includes('disconnected profile')).length
     };
   }, [reportData]);
 
@@ -1105,6 +1108,19 @@ const Reporting = ({
     
     navigator.clipboard.writeText(profiles);
     showCopyFeedback('failed_ids');
+  };
+
+  const copyDisconnectedProfiles = () => {
+    const profiles = filteredData
+      .filter(i => i.status?.toLowerCase() === 'completed' && i.log?.toLowerCase().includes('disconnected profile'))
+      .map(i => i.profileName)
+      .filter(Boolean)
+      .join('\n');
+    
+    if (!profiles) return;
+    
+    navigator.clipboard.writeText(profiles);
+    showCopyFeedback('disconnected_ids');
   };
 
   const copySessionNames = () => {
@@ -1141,6 +1157,56 @@ const Reporting = ({
     navigator.clipboard.writeText(replacementOutput);
     showCopyFeedback('replacement');
   };
+
+  const CopyButton = ({ 
+    onClick, 
+    id, 
+    label, 
+    icon: Icon, 
+    colorClass = 'text-muted hover:text-white border-white/10 bg-white/5 hover:bg-white/10' 
+  }: { 
+    onClick: () => void, 
+    id: string, 
+    label: string, 
+    icon: any,
+    colorClass?: string
+  }) => (
+    <motion.button 
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={onClick}
+      disabled={filteredData.length === 0}
+      className={`px-3 py-1.5 border rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 disabled:opacity-30 whitespace-nowrap relative overflow-hidden ${
+        copiedKey === id
+          ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
+          : colorClass
+      }`}
+    >
+      <AnimatePresence mode="wait">
+        {copiedKey === id ? (
+          <motion.div
+            key="copied"
+            initial={{ y: 10, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -10, opacity: 0 }}
+            className="flex items-center gap-2"
+          >
+            <Check className="w-3 h-3" /> Copied!
+          </motion.div>
+        ) : (
+          <motion.div
+            key="label"
+            initial={{ y: -10, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 10, opacity: 0 }}
+            className="flex items-center gap-2"
+          >
+            <Icon className="w-3 h-3" /> {label}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.button>
+  );
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -1260,7 +1326,7 @@ const Reporting = ({
         {/* Right Column: Analysis Area */}
         <div className="lg:col-span-8 space-y-6">
           {/* Stats */}
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-5 gap-4">
             <Card className="p-4 flex flex-col items-center justify-center text-center border-l-4 border-l-accent">
               <div className="text-[10px] text-muted uppercase tracking-widest font-bold mb-1">Total</div>
               <div className="text-2xl font-black text-white">{stats.total}</div>
@@ -1277,6 +1343,10 @@ const Reporting = ({
               <div className="text-[10px] text-muted uppercase tracking-widest font-bold mb-1">Failed</div>
               <div className="text-2xl font-black text-rose-600">{stats.failed}</div>
             </Card>
+            <Card className="p-4 flex flex-col items-center justify-center text-center border-l-4 border-l-indigo-500">
+              <div className="text-[10px] text-muted uppercase tracking-widest font-bold mb-1">Disconnected</div>
+              <div className="text-2xl font-black text-indigo-500">{stats.disconnected}</div>
+            </Card>
           </div>
 
           {/* Table Card */}
@@ -1284,7 +1354,7 @@ const Reporting = ({
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
               <div className="flex items-center gap-4">
                 <div className="flex bg-black/20 p-1 rounded-lg border border-white/5">
-                  {(['all', 'closed', 'proxy_down', 'failed'] as const).map(f => (
+                  {(['all', 'closed', 'proxy_down', 'failed', 'disconnected'] as const).map(f => (
                     <button
                       key={f}
                       onClick={() => setFilter(f)}
@@ -1305,58 +1375,45 @@ const Reporting = ({
                   />
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={copyFailedProfiles}
-                  disabled={filteredData.length === 0}
-                  className={`px-4 py-2 border rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 disabled:opacity-30 ${
-                    copiedKey === 'failed_ids'
-                      ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
-                      : 'bg-rose-600/10 hover:bg-rose-600/20 border-rose-600/30 text-rose-600'
-                  }`}
-                  title="Copy Profile IDs for filtered 'Failed' items"
-                >
-                  {copiedKey === 'failed_ids' ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
-                  {copiedKey === 'failed_ids' ? 'Copied!' : 'Copy Failed IDs'}
-                </button>
-                <button 
-                  onClick={copyProxyDownProfiles}
-                  disabled={filteredData.length === 0}
-                  className={`px-4 py-2 border rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 disabled:opacity-30 ${
-                    copiedKey === 'down_ids'
-                      ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
-                      : 'bg-red-500/10 hover:bg-red-500/20 border-red-500/30 text-red-500'
-                  }`}
-                  title="Copy Profile IDs for filtered 'Proxy Down' items"
-                >
-                  {copiedKey === 'down_ids' ? <Check className="w-3 h-3" /> : <ShieldAlert className="w-3 h-3" />}
-                  {copiedKey === 'down_ids' ? 'Copied!' : 'Copy Down IDs'}
-                </button>
-                <button 
-                  onClick={copySessionNames}
-                  disabled={filteredData.length === 0}
-                  className={`px-4 py-2 border rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 disabled:opacity-30 ${
-                    copiedKey === 'sessions'
-                      ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
-                      : 'bg-white/5 hover:bg-white/10 border-white/10 text-muted hover:text-white'
-                  }`}
-                  title="Copy session names of filtered items"
-                >
-                  {copiedKey === 'sessions' ? <Check className="w-3 h-3" /> : <List className="w-3 h-3" />}
-                  {copiedKey === 'sessions' ? 'Copied!' : 'Copy Sessions'}
-                </button>
-                <button 
-                  onClick={copyProxies}
-                  disabled={filteredData.length === 0}
-                  className={`px-4 py-2 border rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 disabled:opacity-30 ${
-                    copiedKey === 'proxies'
-                      ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
-                      : 'bg-white/5 hover:bg-white/10 border-white/10 text-muted hover:text-white'
-                  }`}
-                >
-                  {copiedKey === 'proxies' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                  {copiedKey === 'proxies' ? 'Copied!' : 'Copy Proxies'}
-                </button>
+              <div className="flex flex-wrap items-center gap-2 bg-black/20 p-1.5 rounded-xl border border-white/5">
+                <div className="flex items-center gap-1.5 pr-2 border-r border-white/10">
+                  <CopyButton 
+                    onClick={copyDisconnectedProfiles} 
+                    id="disconnected_ids" 
+                    label="Disconnected" 
+                    icon={Monitor}
+                    colorClass="text-indigo-400 hover:text-indigo-300 border-indigo-500/20 bg-indigo-500/5 hover:bg-indigo-500/10"
+                  />
+                  <CopyButton 
+                    onClick={copyFailedProfiles} 
+                    id="failed_ids" 
+                    label="Failed" 
+                    icon={X}
+                    colorClass="text-rose-400 hover:text-rose-300 border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10"
+                  />
+                  <CopyButton 
+                    onClick={copyProxyDownProfiles} 
+                    id="down_ids" 
+                    label="Down" 
+                    icon={ShieldAlert}
+                    colorClass="text-red-400 hover:text-red-300 border-red-500/20 bg-red-500/5 hover:bg-red-500/10"
+                  />
+                </div>
+                
+                <div className="flex items-center gap-1.5 pl-0.5">
+                  <CopyButton 
+                    onClick={copySessionNames} 
+                    id="sessions" 
+                    label="Sessions" 
+                    icon={List}
+                  />
+                  <CopyButton 
+                    onClick={copyProxies} 
+                    id="proxies" 
+                    label="Proxies" 
+                    icon={Copy}
+                  />
+                </div>
               </div>
             </div>
 
@@ -1399,13 +1456,19 @@ const Reporting = ({
                             ? 'bg-amber-500/20 text-amber-500' 
                             : item.status?.toLowerCase() === 'failed'
                             ? 'bg-rose-600/20 text-rose-600'
+                            : item.status?.toLowerCase() === 'completed' && item.log?.toLowerCase().includes('disconnected profile')
+                            ? 'bg-indigo-500/20 text-indigo-400'
                             : 'bg-emerald-500/20 text-emerald-500'
                         }`}>
-                          {item.status}
+                          {item.status?.toLowerCase() === 'completed' && item.log?.toLowerCase().includes('disconnected profile') ? 'Disconnected' : item.status}
                         </span>
                       </td>
                       <td className="p-4">
-                        {item.status?.toLowerCase() === 'failed' ? (
+                        {item.status?.toLowerCase() === 'completed' && item.log?.toLowerCase().includes('disconnected profile') ? (
+                          <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-indigo-500/20 text-indigo-400">
+                            Disconnected Profile
+                          </span>
+                        ) : item.status?.toLowerCase() === 'failed' ? (
                           <div className="text-[9px] text-rose-400 font-medium max-w-[250px] break-words" title={item.log}>
                             {item.log}
                           </div>
