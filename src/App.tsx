@@ -113,8 +113,8 @@ const Card = ({ children, className = "", ...props }: React.HTMLAttributes<HTMLD
   </div>
 );
 
-const Label = ({ children }: { children: React.ReactNode }) => (
-  <label className="text-[11px] uppercase tracking-wider text-accent font-bold mb-2 block">
+const Label = ({ children, className = '' }: { children: React.ReactNode, className?: string }) => (
+  <label className={`text-[11px] uppercase tracking-wider text-accent font-bold mb-2 block ${className}`}>
     {children}
   </label>
 );
@@ -940,6 +940,8 @@ const Reporting = ({
   const [search, setSearch] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [replacementOutput, setReplacementOutput] = useState('');
+  const [replacementTemplate, setReplacementTemplate] = useState('profile#session#proxy');
+  const [targetProxyClass, setTargetProxyClass] = useState('');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1147,11 +1149,29 @@ const Reporting = ({
       return;
     }
 
-    const output = filteredData.map((item, idx) => {
+    let targetData = filteredData;
+    
+    if (targetProxyClass.trim()) {
+      targetData = reportData.filter(item => {
+        const proxyIp = item.proxy?.split(':')[0] || '';
+        return proxyIp.startsWith(targetProxyClass.trim());
+      });
+    }
+
+    if (targetData.length === 0) {
+      alert('No profiles found for the selected target.');
+      return;
+    }
+
+    const output = targetData.map((item, idx) => {
       if (idx >= newProxies.length) return null;
       // Clean session name: remove IP part like (51.159.137.95)
       const cleanSession = item.sessionName.split('(')[0].trim();
-      return `${item.profileName}#${cleanSession}#${newProxies[idx]}`;
+      
+      return replacementTemplate
+        .replace(/profile/gi, item.profileName)
+        .replace(/session/gi, cleanSession)
+        .replace(/proxy/gi, newProxies[idx]);
     }).filter(Boolean).join('\n');
 
     setReplacementOutput(output);
@@ -1268,13 +1288,68 @@ const Reporting = ({
           </Card>
 
           {/* Replacement Tool */}
-          <Card className="flex flex-col gap-6">
+          <Card id="replacement-tool" className="flex flex-col gap-6">
             <div className="flex items-center gap-2">
               <Shield className="w-4 h-4 text-emerald-400" />
               <h3 className="text-xs uppercase tracking-widest text-emerald-400 font-bold">Proxy Replacement</h3>
             </div>
             
-            <div>
+            <div className="space-y-4">
+              <div>
+                <Label>Target Proxy Class (IP Prefix)</Label>
+                <div className="relative group">
+                  <ShieldAlert className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted group-focus-within:text-emerald-400 transition-colors" />
+                  <input 
+                    type="text"
+                    placeholder="e.g. 192.73.17"
+                    value={targetProxyClass}
+                    onChange={e => setTargetProxyClass(e.target.value)}
+                    className="w-full bg-black/20 border border-white/5 rounded-lg pl-8 pr-10 py-2 text-xs outline-none focus:border-emerald-500/30 transition-all font-mono"
+                  />
+                  {targetProxyClass && (
+                    <button 
+                      onClick={() => setTargetProxyClass('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-white/5 rounded text-muted hover:text-white transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+                <p className="mt-1.5 text-[9px] text-muted italic">
+                  {targetProxyClass.trim() 
+                    ? `Targeting ${reportData.filter(i => i.proxy?.split(':')[0].startsWith(targetProxyClass.trim())).length} profiles matching class "${targetProxyClass}".`
+                    : `Targeting all ${filteredData.length} currently filtered profiles.`}
+                </p>
+                <p className="text-[8px] text-muted/50 mt-1 uppercase tracking-tighter font-bold">Tip: Click a proxy in the table to auto-fill its class.</p>
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <Label className="mb-0">Replacement Template</Label>
+                <div className="flex gap-2">
+                  {['profile#proxy', 'profile#session#proxy'].map(t => (
+                    <button 
+                      key={t}
+                      onClick={() => setReplacementTemplate(t)}
+                      className="text-[9px] px-2 py-0.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-muted hover:text-white transition-all uppercase font-bold"
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <input 
+                type="text"
+                value={replacementTemplate}
+                onChange={e => setReplacementTemplate(e.target.value)}
+                placeholder="e.g. profile#proxy"
+                className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-2 text-xs outline-none focus:border-emerald-500/30 transition-all font-mono"
+              />
+              <p className="mt-1.5 text-[9px] text-muted italic">Available placeholders: <span className="text-emerald-400 font-bold">profile</span>, <span className="text-emerald-400 font-bold">session</span>, <span className="text-emerald-400 font-bold">proxy</span></p>
+            </div>
+          </div>
+
+          <div>
               <Label>New Proxies (One per line)</Label>
               <TextArea 
                 placeholder="Paste new proxies here..."
@@ -1484,7 +1559,21 @@ const Reporting = ({
                           <span className="text-[10px] text-muted/30 italic">None</span>
                         )}
                       </td>
-                      <td className="p-4 text-[10px] font-mono text-muted group-hover:text-white transition-colors">{item.proxy}</td>
+                      <td 
+                        className="p-4 text-[10px] font-mono text-muted group-hover:text-white transition-colors cursor-pointer hover:text-accent"
+                        onClick={() => {
+                          const ip = item.proxy?.split(':')[0] || '';
+                          const parts = ip.split('.');
+                          if (parts.length >= 3) {
+                            const proxyClass = `${parts[0]}.${parts[1]}.${parts[2]}`;
+                            setTargetProxyClass(proxyClass);
+                            document.getElementById('replacement-tool')?.scrollIntoView({ behavior: 'smooth' });
+                          }
+                        }}
+                        title="Click to target this proxy class"
+                      >
+                        {item.proxy}
+                      </td>
                     </tr>
                   )) : (
                     <tr>
