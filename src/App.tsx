@@ -167,6 +167,7 @@ export default function App() {
 
   const [entityId, setEntityId] = useState<string>(entities[0].id);
   const [session, setSession] = useState<string>('ALL');
+  const [selectedSessions, setSelectedSessions] = useState<number[]>([]);
   const [blockSize, setBlockSize] = useState<number>(entities[0].sessions[0].size);
   const [rangeMode, setRangeMode] = useState<RangeMode>('continuous');
   const [baseId, setBaseId] = useState<number>(1);
@@ -217,21 +218,29 @@ export default function App() {
   // Update block size and ranges when entity changes
   useEffect(() => {
     setSession('ALL');
+    setSelectedSessions([]);
   }, [currentEntity]);
 
   // Update block size when session changes
   useEffect(() => {
-    if (session !== 'ALL') {
+    if (session !== 'ALL' && session !== 'CUSTOM') {
       const idx = parseInt(session);
       setBlockSize(currentEntity.sessions[idx].size);
+    } else if (session === 'CUSTOM') {
+      const totalSize = selectedSessions.reduce((acc, idx) => acc + currentEntity.sessions[idx].size, 0);
+      setBlockSize(totalSize);
     }
-  }, [session, currentEntity]);
+  }, [session, currentEntity, selectedSessions]);
 
   useEffect(() => {
     const start = baseId || 1;
 
     if (session === 'ALL') {
       const totalSize = currentEntity.sessions.reduce((acc, s) => acc + s.size, 0);
+      setRangeCount(totalSize);
+      setRangeFrom(start);
+    } else if (session === 'CUSTOM') {
+      const totalSize = selectedSessions.reduce((acc, idx) => acc + currentEntity.sessions[idx].size, 0);
       setRangeCount(totalSize);
       setRangeFrom(start);
     } else {
@@ -248,7 +257,7 @@ export default function App() {
         setRangeFrom(start);
       }
     }
-  }, [currentEntity, session, rangeMode, baseId, blockSize]);
+  }, [currentEntity, session, rangeMode, baseId, blockSize, selectedSessions]);
 
   // --- Logic ---
   const extractVer = (ua: string) => {
@@ -305,6 +314,31 @@ export default function App() {
           size: last.size,
           accumulatedBefore: accumulated - last.size
         };
+      } else if (session === "CUSTOM") {
+        let accumulated = 0;
+        for (let i = 0; i < selectedSessions.length; i++) {
+          const sessionIdx = selectedSessions[i];
+          const s = currentEntity.sessions[sessionIdx];
+          if (index < accumulated + s.size) {
+            return {
+              name: s.name,
+              index: sessionIdx,
+              localIndex: index - accumulated,
+              size: s.size,
+              accumulatedBefore: accumulated
+            };
+          }
+          accumulated += s.size;
+        }
+        const lastIdx = selectedSessions[selectedSessions.length - 1] || 0;
+        const last = currentEntity.sessions[lastIdx];
+        return { 
+          name: last.name, 
+          index: lastIdx, 
+          localIndex: index - (accumulated - last.size),
+          size: last.size,
+          accumulatedBefore: accumulated - last.size
+        };
       } else {
         const idx = parseInt(session);
         const s = currentEntity.sessions[idx];
@@ -327,7 +361,7 @@ export default function App() {
         const sessionInfo = getSessionInfo(i);
         
         const isBulk = uas.length > sessionInfo.size;
-        const dataOffset = (session !== "ALL" && isBulk) ? (sessionInfo.index * sessionInfo.size) : 0;
+        const dataOffset = (session !== "ALL" && session !== "CUSTOM" && isBulk) ? (sessionInfo.index * sessionInfo.size) : 0;
         
         const ua = uas[(dataOffset + i) % uas.length];
         const version = extractVer(ua);
@@ -352,7 +386,7 @@ export default function App() {
         const sessionInfo = getSessionInfo(i);
 
         const isBulk = proxies.length > sessionInfo.size;
-        const dataOffset = (session !== "ALL" && isBulk) ? (sessionInfo.index * sessionInfo.size) : 0;
+        const dataOffset = (session !== "ALL" && session !== "CUSTOM" && isBulk) ? (sessionInfo.index * sessionInfo.size) : 0;
 
         const tag = tags[(dataOffset + i) % tags.length];
         const proxy = proxies[(dataOffset + i) % proxies.length];
@@ -370,7 +404,7 @@ export default function App() {
     }
 
     return generated;
-  }, [currentEntity, session, blockSize, rangeFrom, rangeCount, mode, uaList, tagList, proxyList, template]);
+  }, [currentEntity, session, selectedSessions, blockSize, rangeFrom, rangeCount, mode, uaList, tagList, proxyList, template]);
 
   const filteredResults = useMemo(() => {
     if (!searchQuery) return allResults;
@@ -467,7 +501,7 @@ export default function App() {
             <div className="text-[10px] text-muted uppercase tracking-[0.2em] font-bold">ECM Synchronized Connect</div>
             <div className="text-xl font-extrabold text-accent flex items-center gap-2">
               {view === 'connect' 
-                ? (session === 'ALL' ? `${currentEntity.name} - ALL` : currentEntity.sessions[parseInt(session)]?.name)
+                ? (session === 'ALL' ? `${currentEntity.name} - ALL` : (session === 'CUSTOM' ? `${currentEntity.name} - CUSTOM` : currentEntity.sessions[parseInt(session)]?.name))
                 : 'Reporting & Analysis'
               }
             </div>
@@ -540,20 +574,78 @@ export default function App() {
 
                 <div>
                   <Label>Session</Label>
-                  <Select value={session} onChange={(e) => setSession(e.target.value)}>
+                  <Select value={session} onChange={(e) => {
+                    const val = e.target.value;
+                    setSession(val);
+                    if (val === 'CUSTOM' && selectedSessions.length === 0) {
+                      setSelectedSessions([0]);
+                    }
+                  }}>
                     <option value="ALL">ALL SESSIONS</option>
+                    <option value="CUSTOM">CUSTOM SELECTION</option>
                     {currentEntity.sessions.map((s, idx) => (
                       <option key={idx} value={idx}>{s.name}</option>
                     ))}
                   </Select>
                 </div>
 
+                {session === 'CUSTOM' && (
+                  <div className="p-4 bg-black/20 rounded-xl border border-white/5 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="flex justify-between items-center mb-1">
+                      <Label className="mb-0">Select Sessions</Label>
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => setSelectedSessions(currentEntity.sessions.map((_, i) => i))}
+                          className="text-[9px] text-accent hover:underline font-bold uppercase"
+                        >
+                          All
+                        </button>
+                        <button 
+                          onClick={() => setSelectedSessions([])}
+                          className="text-[9px] text-muted hover:underline font-bold uppercase"
+                        >
+                          None
+                        </button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 max-h-[200px] overflow-y-auto pr-2 preview-scrollbar">
+                      {currentEntity.sessions.map((s, idx) => (
+                        <label 
+                          key={idx} 
+                          className={`flex items-center justify-between p-2 rounded-lg border transition-all cursor-pointer ${
+                            selectedSessions.includes(idx) 
+                              ? 'bg-accent/10 border-accent/30 text-accent' 
+                              : 'bg-white/5 border-white/5 text-muted hover:bg-white/10'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <input 
+                              type="checkbox"
+                              checked={selectedSessions.includes(idx)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedSessions([...selectedSessions, idx].sort((a, b) => a - b));
+                                } else {
+                                  setSelectedSessions(selectedSessions.filter(i => i !== idx));
+                                }
+                              }}
+                              className="w-3 h-3 rounded border-white/20 bg-black/40 text-accent focus:ring-0 focus:ring-offset-0"
+                            />
+                            <span className="text-[10px] font-bold truncate max-w-[150px]">{s.name}</span>
+                          </div>
+                          <span className="text-[9px] opacity-60 font-mono">{s.size}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <Label>Block Size (Current Session Override)</Label>
                   <Input 
                     type="number" 
                     value={isNaN(blockSize) ? '' : blockSize} 
-                    disabled={session === 'ALL'}
+                    disabled={session === 'ALL' || session === 'CUSTOM'}
                     onChange={(e) => {
                       const val = e.target.value;
                       if (val === '') {
@@ -566,7 +658,7 @@ export default function App() {
                     onBlur={() => {
                       if (isNaN(blockSize)) setBlockSize(0);
                     }}
-                    className={`text-center font-bold text-accent ${session === 'ALL' ? 'opacity-30' : ''}`}
+                    className={`text-center font-bold text-accent ${session === 'ALL' || session === 'CUSTOM' ? 'opacity-30' : ''}`}
                   />
                 </div>
               </div>
