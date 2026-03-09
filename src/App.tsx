@@ -37,6 +37,8 @@ interface EntityConfig {
   name: string;
   defaultSize: number;
   sessions: SessionConfig[];
+  selectedSessions?: number[];
+  selectedSessionMode?: string;
 }
 
 const DEFAULT_ENTITIES: EntityConfig[] = [
@@ -166,8 +168,8 @@ export default function App() {
   });
 
   const [entityId, setEntityId] = useState<string>(entities[0].id);
-  const [session, setSession] = useState<string>('ALL');
-  const [selectedSessions, setSelectedSessions] = useState<number[]>([]);
+  const [session, setSession] = useState<string>(entities[0].selectedSessionMode || 'ALL');
+  const [selectedSessions, setSelectedSessions] = useState<number[]>(entities[0].selectedSessions || []);
   const [blockSize, setBlockSize] = useState<number>(entities[0].sessions[0].size);
   const [rangeMode, setRangeMode] = useState<RangeMode>('continuous');
   const [baseId, setBaseId] = useState<number>(1);
@@ -194,9 +196,11 @@ export default function App() {
   const [showEntityModal, setShowEntityModal] = useState(false);
   const [showPresetModal, setShowPresetModal] = useState(false);
   const [showSessionModal, setShowSessionModal] = useState(false);
+  const [tempSessions, setTempSessions] = useState<SessionConfig[]>([]);
 
   // --- Refs ---
   const resultsContainerRef = useRef<HTMLDivElement>(null);
+  const lastEntityId = useRef(entityId);
 
   // --- Persistence ---
   useEffect(() => {
@@ -218,17 +222,58 @@ export default function App() {
 
   // Update block size and ranges when entity changes
   useEffect(() => {
-    setSession('ALL');
-    setSelectedSessions([]);
-  }, [currentEntity]);
+    // Load saved sessions and mode for this entity
+    if (currentEntity.selectedSessions) {
+      setSelectedSessions(currentEntity.selectedSessions);
+    } else {
+      setSelectedSessions([]);
+    }
+
+    if (currentEntity.selectedSessionMode) {
+      setSession(currentEntity.selectedSessionMode);
+    } else {
+      setSession('ALL');
+    }
+
+    // Validate session selection
+    if (session !== 'ALL' && session !== 'CUSTOM') {
+      const idx = parseInt(session);
+      if (idx >= currentEntity.sessions.length) {
+        setSession('ALL');
+      }
+    }
+  }, [entityId]); // Only trigger on entity switch
+
+  // Sync selectedSessions and mode back to entities state for persistence
+  useEffect(() => {
+    if (lastEntityId.current !== entityId) {
+      lastEntityId.current = entityId;
+      return;
+    }
+
+    setEntities(prev => prev.map(e => 
+      e.id === entityId ? { ...e, selectedSessions, selectedSessionMode: session } : e
+    ));
+  }, [selectedSessions, session, entityId]);
+
+  // Sync tempSessions when modal opens
+  useEffect(() => {
+    if (showSessionModal) {
+      setTempSessions([...currentEntity.sessions]);
+    }
+  }, [showSessionModal, currentEntity]);
 
   // Update block size when session changes
   useEffect(() => {
     if (session !== 'ALL' && session !== 'CUSTOM') {
       const idx = parseInt(session);
-      setBlockSize(currentEntity.sessions[idx].size);
+      const s = currentEntity.sessions[idx];
+      if (s) setBlockSize(s.size);
     } else if (session === 'CUSTOM') {
-      const totalSize = selectedSessions.reduce((acc, idx) => acc + currentEntity.sessions[idx].size, 0);
+      const totalSize = selectedSessions.reduce((acc, idx) => {
+        const s = currentEntity.sessions[idx];
+        return acc + (s ? s.size : 0);
+      }, 0);
       setBlockSize(totalSize);
     }
   }, [session, currentEntity, selectedSessions]);
@@ -241,12 +286,16 @@ export default function App() {
       setRangeCount(totalSize);
       setRangeFrom(start);
     } else if (session === 'CUSTOM') {
-      const totalSize = selectedSessions.reduce((acc, idx) => acc + currentEntity.sessions[idx].size, 0);
+      const totalSize = selectedSessions.reduce((acc, idx) => {
+        const s = currentEntity.sessions[idx];
+        return acc + (s ? s.size : 0);
+      }, 0);
       setRangeCount(totalSize);
       setRangeFrom(start);
     } else {
       const idx = parseInt(session);
-      const currentSessionSize = blockSize || currentEntity.sessions[idx].size;
+      const s = currentEntity.sessions[idx];
+      const currentSessionSize = blockSize || (s ? s.size : 0);
       setRangeCount(currentSessionSize);
       
       if (rangeMode === 'continuous') {
@@ -320,6 +369,7 @@ export default function App() {
         for (let i = 0; i < selectedSessions.length; i++) {
           const sessionIdx = selectedSessions[i];
           const s = currentEntity.sessions[sessionIdx];
+          if (!s) continue;
           if (index < accumulated + s.size) {
             return {
               name: s.name,
@@ -332,22 +382,22 @@ export default function App() {
           accumulated += s.size;
         }
         const lastIdx = selectedSessions[selectedSessions.length - 1] || 0;
-        const last = currentEntity.sessions[lastIdx];
+        const last = currentEntity.sessions[lastIdx] || currentEntity.sessions[0];
         return { 
-          name: last.name, 
+          name: last?.name || 'Unknown', 
           index: lastIdx, 
-          localIndex: index - (accumulated - last.size),
-          size: last.size,
-          accumulatedBefore: accumulated - last.size
+          localIndex: index - (accumulated - (last?.size || 0)),
+          size: last?.size || 0,
+          accumulatedBefore: accumulated - (last?.size || 0)
         };
       } else {
         const idx = parseInt(session);
-        const s = currentEntity.sessions[idx];
+        const s = currentEntity.sessions[idx] || currentEntity.sessions[0];
         return {
-          name: s.name,
+          name: s?.name || 'Unknown',
           index: idx,
           localIndex: index,
-          size: blockSize || s.size,
+          size: blockSize || s?.size || 0,
           accumulatedBefore: 0
         };
       }
@@ -951,11 +1001,11 @@ export default function App() {
               <div className="flex justify-between items-center">
                 <div className="flex flex-col">
                   <span className="text-xs font-bold text-white uppercase tracking-wider">{currentEntity.name}</span>
-                  <span className="text-[10px] text-muted">{currentEntity.sessions.length} total sessions available</span>
+                  <span className="text-[10px] text-muted">{tempSessions.length} total sessions available</span>
                 </div>
                 <div className="flex gap-3">
                   <button 
-                    onClick={() => setSelectedSessions(currentEntity.sessions.map((_, i) => i))}
+                    onClick={() => setSelectedSessions(tempSessions.map((_, i) => i))}
                     className="text-[10px] text-accent hover:text-accent/80 font-bold uppercase tracking-widest transition-colors"
                   >
                     Select All
@@ -970,49 +1020,77 @@ export default function App() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[400px] overflow-y-auto pr-2 preview-scrollbar">
-                {currentEntity.sessions.map((s, idx) => (
-                  <label 
+                {tempSessions.map((s, idx) => (
+                  <div 
                     key={idx} 
-                    className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer group ${
+                    className={`flex items-center justify-between p-3 rounded-xl border transition-all group ${
                       selectedSessions.includes(idx) 
-                        ? 'bg-accent/10 border-accent/30 text-accent' 
-                        : 'bg-white/5 border-white/10 text-muted hover:bg-white/10 hover:border-white/20'
+                        ? 'bg-accent/10 border-accent/30' 
+                        : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
                     }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
-                        selectedSessions.includes(idx) ? 'bg-accent border-accent' : 'bg-black/40 border-white/20 group-hover:border-white/40'
-                      }`}>
-                        {selectedSessions.includes(idx) && <Check className="w-3 h-3 text-black" />}
-                      </div>
-                      <input 
-                        type="checkbox"
-                        className="hidden"
-                        checked={selectedSessions.includes(idx)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedSessions([...selectedSessions, idx].sort((a, b) => a - b));
-                          } else {
-                            setSelectedSessions(selectedSessions.filter(i => i !== idx));
-                          }
-                        }}
-                      />
-                      <span className="text-[11px] font-bold truncate max-w-[140px]">{s.name}</span>
+                    <div className="flex items-center gap-3 flex-1">
+                      <label className="flex items-center gap-3 cursor-pointer flex-1">
+                        <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
+                          selectedSessions.includes(idx) ? 'bg-accent border-accent' : 'bg-black/40 border-white/20 group-hover:border-white/40'
+                        }`}>
+                          {selectedSessions.includes(idx) && <Check className="w-3 h-3 text-black" />}
+                        </div>
+                        <input 
+                          type="checkbox"
+                          className="hidden"
+                          checked={selectedSessions.includes(idx)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedSessions([...selectedSessions, idx].sort((a, b) => a - b));
+                            } else {
+                              setSelectedSessions(selectedSessions.filter(i => i !== idx));
+                            }
+                          }}
+                        />
+                        <span className={`text-[11px] font-bold truncate max-w-[120px] ${selectedSessions.includes(idx) ? 'text-accent' : 'text-muted'}`}>
+                          {s.name}
+                        </span>
+                      </label>
                     </div>
-                    <Badge color={selectedSessions.includes(idx) ? 'accent' : 'accent'}>
-                      {s.size}
-                    </Badge>
-                  </label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] text-muted uppercase font-bold">Size:</span>
+                      <input 
+                        type="number"
+                        value={s.size}
+                        onChange={(e) => {
+                          const newVal = parseInt(e.target.value) || 0;
+                          const updated = [...tempSessions];
+                          updated[idx] = { ...updated[idx], size: newVal };
+                          setTempSessions(updated);
+                        }}
+                        className="w-16 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-[10px] font-mono text-white text-center focus:border-accent/50 outline-none transition-all"
+                      />
+                    </div>
+                  </div>
                 ))}
               </div>
 
               <div className="pt-6 border-t border-white/10 flex justify-between items-center">
                 <div className="text-[10px] text-muted font-bold uppercase tracking-widest">
-                  Total selected: <span className="text-accent">{selectedSessions.reduce((acc, idx) => acc + currentEntity.sessions[idx].size, 0)}</span> profiles
+                  Total selected: <span className="text-accent">{selectedSessions.reduce((acc, idx) => {
+                    const s = tempSessions[idx];
+                    return acc + (s ? s.size : 0);
+                  }, 0)}</span> profiles
                 </div>
                 <button 
-                  onClick={() => setShowSessionModal(false)}
-                  className="px-6 py-2 bg-accent text-black font-bold rounded-xl hover:bg-accent/90 transition-all text-xs uppercase tracking-widest"
+                  onClick={() => {
+                    // Save tempSessions back to entities
+                    const updatedEntities = entities.map(e => {
+                      if (e.id === entityId) {
+                        return { ...e, sessions: tempSessions };
+                      }
+                      return e;
+                    });
+                    setEntities(updatedEntities);
+                    setShowSessionModal(false);
+                  }}
+                  className="px-6 py-2 bg-accent text-black font-bold rounded-xl hover:bg-accent/90 transition-all text-xs uppercase tracking-widest shadow-[0_4px_16px_rgba(0,255,153,0.3)]"
                 >
                   Done
                 </button>
