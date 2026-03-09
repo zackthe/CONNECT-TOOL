@@ -107,14 +107,14 @@ type View = 'connect' | 'reporting';
 const Card = ({ children, className = "", ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div 
     {...props}
-    className={`bg-card border border-white/10 rounded-2xl p-6 shadow-2xl ${className}`}
+    className={`bg-[#0a0f1e] border border-white/5 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-sm ${className}`}
   >
     {children}
   </div>
 );
 
 const Label = ({ children, className = '' }: { children: React.ReactNode, className?: string }) => (
-  <label className={`text-[11px] uppercase tracking-wider text-accent font-bold mb-2 block ${className}`}>
+  <label className={`text-[10px] uppercase tracking-[0.15em] text-muted font-bold mb-2.5 block ${className}`}>
     {children}
   </label>
 );
@@ -122,32 +122,32 @@ const Label = ({ children, className = '' }: { children: React.ReactNode, classN
 const Input = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
   <input 
     {...props}
-    className={`w-full bg-[#0c1428] border border-white/10 text-[#eaf1ff] px-4 py-3 rounded-xl outline-none focus:border-accent/50 transition-colors font-mono ${props.className || ''}`}
+    className={`w-full bg-[#0c1428]/60 border border-white/10 text-[#eaf1ff] px-4 py-3 rounded-2xl outline-none focus:border-accent/50 focus:bg-[#0c1428] transition-all font-medium placeholder:text-white/20 ${props.className || ''}`}
   />
 );
 
 const Select = (props: React.SelectHTMLAttributes<HTMLSelectElement>) => (
   <select 
     {...props}
-    className="w-full bg-[#0c1428] border border-white/10 text-[#eaf1ff] px-4 py-3 rounded-xl outline-none focus:border-accent/50 transition-colors appearance-none cursor-pointer"
+    className="w-full bg-[#0c1428]/60 border border-white/10 text-[#eaf1ff] px-4 py-3 rounded-2xl outline-none focus:border-accent/50 focus:bg-[#0c1428] transition-all appearance-none cursor-pointer font-medium"
   />
 );
 
 const TextArea = (props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => (
   <textarea 
     {...props}
-    className="w-full bg-[#0c1428] border border-white/10 text-[#eaf1ff] px-4 py-3 rounded-xl outline-none focus:border-accent/50 transition-colors font-mono text-xs leading-relaxed min-h-[200px] resize-y"
+    className={`w-full bg-[#0c1428]/60 border border-white/10 text-[#eaf1ff] px-4 py-3 rounded-2xl outline-none focus:border-accent/50 focus:bg-[#0c1428] transition-all font-mono text-xs leading-relaxed min-h-[120px] resize-y placeholder:text-white/20 ${props.className || ''}`}
   />
 );
 
 const Badge = ({ children, color = 'accent' }: { children: React.ReactNode, color?: 'accent' | 'amber' | 'emerald' }) => {
   const colors = {
-    accent: 'bg-accent/10 border-accent/30 text-accent',
-    amber: 'bg-amber-500/10 border-amber-500/30 text-amber-500',
-    emerald: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500',
+    accent: 'bg-accent/10 border-accent/20 text-accent',
+    amber: 'bg-amber-500/10 border-amber-500/20 text-amber-500',
+    emerald: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500',
   };
   return (
-    <div className={`px-3 py-1.5 border rounded-lg text-[10px] font-bold flex items-center gap-1.5 ${colors[color]}`}>
+    <div className={`px-2.5 py-1 border rounded-full text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 ${colors[color]}`}>
       {children}
     </div>
   );
@@ -193,6 +193,7 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [showEntityModal, setShowEntityModal] = useState(false);
   const [showPresetModal, setShowPresetModal] = useState(false);
+  const [showSessionModal, setShowSessionModal] = useState(false);
 
   // --- Refs ---
   const resultsContainerRef = useRef<HTMLDivElement>(null);
@@ -547,319 +548,302 @@ export default function App() {
             
             {/* Left Column: Configuration */}
             <div className="lg:col-span-4 space-y-6">
-            <Card>
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-2">
-                  <Settings className="w-4 h-4 text-accent" />
-                  <h3 className="text-xs uppercase tracking-widest text-accent font-bold">1. Entity & Session</h3>
+              {/* Quick Summary Stats */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-accent/5 border border-accent/20 rounded-2xl p-3 flex flex-col items-center justify-center text-center">
+                  <span className="text-[9px] font-bold text-accent uppercase tracking-widest mb-0.5">Profiles</span>
+                  <span className="text-xl font-black text-white leading-none">{rangeCount}</span>
                 </div>
-                <button 
-                  onClick={() => setShowEntityModal(true)}
-                  className="p-1.5 hover:bg-white/5 rounded-lg text-muted hover:text-accent transition-colors"
-                  title="Manage Entities"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-              </div>
-              
-              <div className="space-y-5">
-                <div>
-                  <Label>Entity</Label>
-                  <Select value={entityId} onChange={(e) => setEntityId(e.target.value)}>
-                    {entities.map(e => (
-                      <option key={e.id} value={e.id}>{e.name}</option>
-                    ))}
-                  </Select>
-                </div>
-
-                <div>
-                  <Label>Session</Label>
-                  <Select value={session} onChange={(e) => {
-                    const val = e.target.value;
-                    setSession(val);
-                    if (val === 'CUSTOM' && selectedSessions.length === 0) {
-                      setSelectedSessions([0]);
-                    }
-                  }}>
-                    <option value="ALL">ALL SESSIONS</option>
-                    <option value="CUSTOM">CUSTOM SELECTION</option>
-                    {currentEntity.sessions.map((s, idx) => (
-                      <option key={idx} value={idx}>{s.name}</option>
-                    ))}
-                  </Select>
-                </div>
-
-                {session === 'CUSTOM' && (
-                  <div className="p-4 bg-black/20 rounded-xl border border-white/5 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="flex justify-between items-center mb-1">
-                      <Label className="mb-0">Select Sessions</Label>
-                      <div className="flex gap-2">
-                        <button 
-                          onClick={() => setSelectedSessions(currentEntity.sessions.map((_, i) => i))}
-                          className="text-[9px] text-accent hover:underline font-bold uppercase"
-                        >
-                          All
-                        </button>
-                        <button 
-                          onClick={() => setSelectedSessions([])}
-                          className="text-[9px] text-muted hover:underline font-bold uppercase"
-                        >
-                          None
-                        </button>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 gap-2 max-h-[200px] overflow-y-auto pr-2 preview-scrollbar">
-                      {currentEntity.sessions.map((s, idx) => (
-                        <label 
-                          key={idx} 
-                          className={`flex items-center justify-between p-2 rounded-lg border transition-all cursor-pointer ${
-                            selectedSessions.includes(idx) 
-                              ? 'bg-accent/10 border-accent/30 text-accent' 
-                              : 'bg-white/5 border-white/5 text-muted hover:bg-white/10'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <input 
-                              type="checkbox"
-                              checked={selectedSessions.includes(idx)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedSessions([...selectedSessions, idx].sort((a, b) => a - b));
-                                } else {
-                                  setSelectedSessions(selectedSessions.filter(i => i !== idx));
-                                }
-                              }}
-                              className="w-3 h-3 rounded border-white/20 bg-black/40 text-accent focus:ring-0 focus:ring-offset-0"
-                            />
-                            <span className="text-[10px] font-bold truncate max-w-[150px]">{s.name}</span>
-                          </div>
-                          <span className="text-[9px] opacity-60 font-mono">{s.size}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  <Label>Block Size (Current Session Override)</Label>
-                  <Input 
-                    type="number" 
-                    value={isNaN(blockSize) ? '' : blockSize} 
-                    disabled={session === 'ALL' || session === 'CUSTOM'}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val === '') {
-                        setBlockSize(NaN);
-                        return;
-                      }
-                      const newSize = parseInt(val);
-                      setBlockSize(isNaN(newSize) ? 0 : newSize);
-                    }}
-                    onBlur={() => {
-                      if (isNaN(blockSize)) setBlockSize(0);
-                    }}
-                    className={`text-center font-bold text-accent ${session === 'ALL' || session === 'CUSTOM' ? 'opacity-30' : ''}`}
-                  />
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-3 flex flex-col items-center justify-center text-center">
+                  <span className="text-[9px] font-bold text-muted uppercase tracking-widest mb-0.5">Range</span>
+                  <span className="text-[11px] font-mono text-white leading-none">{rangeFrom} - {rangeFrom + rangeCount - 1}</span>
                 </div>
               </div>
-            </Card>
 
-            <Card>
-              <div className="flex items-center gap-2 mb-6">
-                <Hash className="w-4 h-4 text-accent" />
-                <h3 className="text-xs uppercase tracking-widest text-accent font-bold">2. Numbering Strategy</h3>
-              </div>
-
-              <div className="space-y-5">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Base ID (Global Start)</Label>
-                    <Input 
-                      type="number" 
-                      value={isNaN(baseId) ? '' : baseId} 
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val === '') {
-                          setBaseId(NaN);
-                          return;
-                        }
-                        const n = parseInt(val);
-                        setBaseId(isNaN(n) ? 0 : n);
-                      }}
-                      onBlur={() => {
-                        if (isNaN(baseId)) setBaseId(1);
-                      }}
-                      className="text-center font-bold text-emerald-400"
-                    />
+              <Card>
+                <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-2">
+                    <Settings className="w-4 h-4 text-accent" />
+                    <h3 className="text-xs uppercase tracking-widest text-accent font-bold">1. Entity & Session</h3>
                   </div>
-                  <div>
-                    <Label>Range Mode</Label>
-                    <Select value={rangeMode} onChange={(e) => setRangeMode(e.target.value as RangeMode)}>
-                      <option value="continuous">Continuous</option>
-                      <option value="fixed">Fixed</option>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Calculated Start</Label>
-                    <Input 
-                      type="number" 
-                      value={isNaN(rangeFrom) ? '' : rangeFrom} 
-                      readOnly
-                      className="text-center opacity-60 bg-black/20"
-                    />
-                  </div>
-                  <div>
-                    <Label>Total Count</Label>
-                    <Input 
-                      type="number" 
-                      value={isNaN(rangeCount) ? '' : rangeCount} 
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val === '') {
-                          setRangeCount(NaN);
-                          return;
-                        }
-                        const n = parseInt(val);
-                        setRangeCount(isNaN(n) ? 0 : n);
-                      }}
-                      onBlur={() => {
-                        if (isNaN(rangeCount)) setRangeCount(0);
-                      }}
-                      className="text-center"
-                    />
-                  </div>
+                  <button 
+                    onClick={() => setShowEntityModal(true)}
+                    className="p-1.5 hover:bg-white/5 rounded-lg text-muted hover:text-accent transition-colors"
+                    title="Manage Entities"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
                 </div>
                 
-                <button 
-                  onClick={() => setBaseId(prev => prev + rangeCount)}
-                  className="w-full py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[10px] uppercase tracking-widest font-bold text-muted transition-all"
-                >
-                  Increment Base ID by Count
-                </button>
-              </div>
-            </Card>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <Label>Target Entity</Label>
+                      <Select value={entityId} onChange={(e) => setEntityId(e.target.value)}>
+                        {entities.map(e => (
+                          <option key={e.id} value={e.id}>{e.name}</option>
+                        ))}
+                      </Select>
+                    </div>
 
-            <Card>
-              <div className="flex items-center gap-2 mb-6">
-                <Layout className="w-4 h-4 text-accent" />
-                <h3 className="text-xs uppercase tracking-widest text-accent font-bold">Template & Mode</h3>
-              </div>
+                    <div>
+                      <Label>Session Selection</Label>
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <Select value={session} onChange={(e) => {
+                            const val = e.target.value;
+                            setSession(val);
+                            if (val === 'CUSTOM') {
+                              if (selectedSessions.length === 0) setSelectedSessions([0]);
+                              setShowSessionModal(true);
+                            }
+                          }}>
+                            <option value="ALL">ALL SESSIONS</option>
+                            <option value="CUSTOM">CUSTOM...</option>
+                            {currentEntity.sessions.map((s, idx) => (
+                              <option key={idx} value={idx}>{s.name}</option>
+                            ))}
+                          </Select>
+                        </div>
+                        {session === 'CUSTOM' && (
+                          <button 
+                            onClick={() => setShowSessionModal(true)}
+                            className="px-3 bg-accent/10 hover:bg-accent/20 text-accent rounded-xl border border-accent/20 transition-all"
+                            title="Edit Selection"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
 
-              <div className="space-y-5">
-                <div>
-                  <Label>Output Template</Label>
-                  <Input 
-                    value={template}
-                    onChange={(e) => setTemplate(e.target.value)}
-                    placeholder="{id}#{data}#{extra}"
-                    className="text-sm font-mono"
-                  />
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {['{id}', '{session}', '{entity}', '{data}', '{extra}', '{ua}', '{version}', '{tag}', '{proxy}'].map(tag => (
-                      <button 
-                        key={tag}
-                        onClick={() => setTemplate(prev => prev + tag)}
-                        className="text-[9px] bg-white/5 hover:bg-white/10 px-2 py-1 rounded border border-white/10 text-muted transition-colors"
-                      >
-                        {tag}
-                      </button>
-                    ))}
+                  {session === 'CUSTOM' && (
+                    <div className="px-3 py-2 bg-accent/5 rounded-xl border border-accent/10 flex items-center justify-between">
+                      <span className="text-[10px] text-accent/70 font-bold uppercase tracking-wider">
+                        {selectedSessions.length} sessions selected
+                      </span>
+                      <span className="text-[10px] text-muted font-mono">
+                        {selectedSessions.reduce((acc, idx) => acc + currentEntity.sessions[idx].size, 0)} profiles
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </Card>
+
+              <Card>
+                <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-2">
+                    <Hash className="w-4 h-4 text-accent" />
+                    <h3 className="text-xs uppercase tracking-widest text-accent font-bold">2. Strategy & Format</h3>
+                  </div>
+                  <div className="flex p-0.5 bg-[#0c1428] rounded-lg border border-white/5">
+                    <button 
+                      onClick={() => setMode('ua')}
+                      className={`px-3 py-1 rounded-md text-[9px] font-bold transition-all ${mode === 'ua' ? 'bg-accent text-black' : 'text-muted hover:text-white'}`}
+                    >
+                      UA
+                    </button>
+                    <button 
+                      onClick={() => setMode('proxy')}
+                      className={`px-3 py-1 rounded-md text-[9px] font-bold transition-all ${mode === 'proxy' ? 'bg-accent text-black' : 'text-muted hover:text-white'}`}
+                    >
+                      PROXY
+                    </button>
                   </div>
                 </div>
 
-                <div>
-                  <Label>Quick Delimiter</Label>
-                  <div className="flex gap-2">
-                    {['#', ';', ':', '|', ',', 'TAB'].map(d => (
-                      <button
-                        key={d}
-                        onClick={() => {
-                          const actualD = d === 'TAB' ? '\t' : d;
-                          // Replace common delimiters with the new one
-                          setTemplate(prev => prev.replace(/[#;:|,\t]/g, actualD));
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>Base ID</Label>
+                      <Input 
+                        type="number" 
+                        value={isNaN(baseId) ? '' : baseId} 
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '') {
+                            setBaseId(NaN);
+                            return;
+                          }
+                          const n = parseInt(val);
+                          setBaseId(isNaN(n) ? 1 : n);
                         }}
-                        className="flex-1 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[10px] font-bold text-muted hover:text-accent transition-colors"
+                        onBlur={() => {
+                          if (isNaN(baseId)) setBaseId(1);
+                        }}
+                        className="text-center font-bold text-emerald-400"
+                      />
+                    </div>
+                    <div>
+                      <Label>Range Mode</Label>
+                      <Select value={rangeMode} onChange={(e) => setRangeMode(e.target.value as RangeMode)}>
+                        <option value="continuous">Continuous</option>
+                        <option value="fixed">Fixed</option>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>Total Count</Label>
+                      <Input 
+                        type="number" 
+                        value={isNaN(rangeCount) ? '' : rangeCount} 
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '') {
+                            setRangeCount(NaN);
+                            return;
+                          }
+                          const n = parseInt(val);
+                          setRangeCount(isNaN(n) ? 0 : n);
+                        }}
+                        onBlur={() => {
+                          if (isNaN(rangeCount)) setRangeCount(0);
+                        }}
+                        className="text-center"
+                      />
+                    </div>
+                    <div>
+                      <Label>Block Size</Label>
+                      <Input 
+                        type="number" 
+                        value={isNaN(blockSize) ? '' : blockSize} 
+                        disabled={session === 'ALL' || session === 'CUSTOM'}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '') {
+                            setBlockSize(NaN);
+                            return;
+                          }
+                          const newSize = parseInt(val);
+                          setBlockSize(isNaN(newSize) ? 0 : newSize);
+                        }}
+                        onBlur={() => {
+                          if (isNaN(blockSize)) setBlockSize(0);
+                        }}
+                        className={`text-center font-bold text-accent ${session === 'ALL' || session === 'CUSTOM' ? 'opacity-30' : ''}`}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-white/5">
+                    <div className="flex items-center justify-between mb-2">
+                      <Label className="mb-0">Output Template</Label>
+                      <button 
+                        onClick={() => {
+                          const el = document.getElementById('advanced-template');
+                          if (el) el.classList.toggle('hidden');
+                        }}
+                        className="text-[9px] text-muted hover:text-accent font-bold uppercase tracking-wider"
                       >
-                        {d}
+                        Advanced
                       </button>
-                    ))}
+                    </div>
+                    <Input 
+                      value={template}
+                      onChange={(e) => setTemplate(e.target.value)}
+                      placeholder="{id}#{data}#{extra}"
+                      className="text-sm font-mono"
+                    />
+                    
+                    <div id="advanced-template" className="hidden mt-3 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                      <div className="flex flex-wrap gap-1">
+                        {['{id}', '{session}', '{entity}', '{data}', '{extra}', '{ua}', '{version}', '{tag}', '{proxy}'].map(tag => (
+                          <button 
+                            key={tag}
+                            onClick={() => setTemplate(prev => prev + tag)}
+                            className="text-[8px] bg-white/5 hover:bg-white/10 px-1.5 py-0.5 rounded border border-white/10 text-muted transition-colors"
+                          >
+                            {tag}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex gap-1">
+                        {['#', ';', ':', '|', ',', 'TAB'].map(d => (
+                          <button
+                            key={d}
+                            onClick={() => {
+                              const actualD = d === 'TAB' ? '\t' : d;
+                              setTemplate(prev => prev.replace(/[#;:|,\t]/g, actualD));
+                            }}
+                            className="flex-1 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-md text-[9px] font-bold text-muted hover:text-accent transition-colors"
+                          >
+                            {d}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
+              </Card>
 
-                <div className="flex p-1 bg-[#0c1428] rounded-xl">
+              <Card>
+                <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-accent" />
+                    <h3 className="text-xs uppercase tracking-widest text-accent font-bold">3. Data Input</h3>
+                  </div>
                   <button 
-                    onClick={() => setMode('ua')}
-                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${mode === 'ua' ? 'bg-ring text-white shadow-lg' : 'text-muted hover:text-white'}`}
+                    onClick={() => {
+                      if (mode === 'ua') setUaList('');
+                      else { setTagList(''); setProxyList(''); }
+                    }}
+                    className="p-1.5 hover:bg-white/5 rounded-lg text-muted hover:text-red-400 transition-colors"
+                    title="Clear All Inputs"
                   >
-                    <Monitor className="w-3 h-3" />
-                    UA Mode
-                  </button>
-                  <button 
-                    onClick={() => setMode('proxy')}
-                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${mode === 'proxy' ? 'bg-ring text-white shadow-lg' : 'text-muted hover:text-white'}`}
-                  >
-                    <Shield className="w-3 h-3" />
-                    Proxy Mode
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
-              </div>
-            </Card>
 
-            <Card>
-              <div className="flex items-center gap-2 mb-6">
-                <Layers className="w-4 h-4 text-accent" />
-                <h3 className="text-xs uppercase tracking-widest text-accent font-bold">Data Input</h3>
-              </div>
-
-              <AnimatePresence mode="wait">
-                {mode === 'ua' ? (
-                  <motion.div 
-                    key="ua"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="space-y-4"
-                  >
-                    <TextArea 
-                      placeholder="Paste UAs here (one per line)..."
-                      value={uaList}
-                      onChange={(e) => setUaList(e.target.value)}
-                    />
-                  </motion.div>
-                ) : (
-                  <motion.div 
-                    key="proxy"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="space-y-4"
-                  >
-                    <div>
-                      <Label>Tags</Label>
+                <AnimatePresence mode="wait">
+                  {mode === 'ua' ? (
+                    <motion.div 
+                      key="ua"
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -5 }}
+                      className="space-y-4"
+                    >
                       <TextArea 
-                        placeholder="Paste Tags here..."
-                        value={tagList}
-                        onChange={(e) => setTagList(e.target.value)}
-                        className="min-h-[100px]"
+                        placeholder="Paste UAs here (one per line)..."
+                        value={uaList}
+                        onChange={(e) => setUaList(e.target.value)}
+                        className="min-h-[150px]"
                       />
-                    </div>
-                    <div>
-                      <Label>Proxies</Label>
-                      <TextArea 
-                        placeholder="Paste Proxies here..."
-                        value={proxyList}
-                        onChange={(e) => setProxyList(e.target.value)}
-                        className="min-h-[100px]"
-                      />
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </Card>
-          </div>
+                    </motion.div>
+                  ) : (
+                    <motion.div 
+                      key="proxy"
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -5 }}
+                      className="space-y-4"
+                    >
+                      <div>
+                        <Label>Tags</Label>
+                        <TextArea 
+                          placeholder="Paste Tags here..."
+                          value={tagList}
+                          onChange={(e) => setTagList(e.target.value)}
+                          className="min-h-[80px]"
+                        />
+                      </div>
+                      <div>
+                        <Label>Proxies</Label>
+                        <TextArea 
+                          placeholder="Paste Proxies here..."
+                          value={proxyList}
+                          onChange={(e) => setProxyList(e.target.value)}
+                          className="min-h-[80px]"
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </Card>
+            </div>
 
           {/* Right Column: Results */}
           <div className="lg:col-span-8 space-y-6">
@@ -959,6 +943,81 @@ export default function App() {
               onUpdate={updateEntity}
               onDelete={deleteEntity} 
             />
+          </Modal>
+        )}
+        {showSessionModal && (
+          <Modal title="Select Sessions" onClose={() => setShowSessionModal(false)}>
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold text-white uppercase tracking-wider">{currentEntity.name}</span>
+                  <span className="text-[10px] text-muted">{currentEntity.sessions.length} total sessions available</span>
+                </div>
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setSelectedSessions(currentEntity.sessions.map((_, i) => i))}
+                    className="text-[10px] text-accent hover:text-accent/80 font-bold uppercase tracking-widest transition-colors"
+                  >
+                    Select All
+                  </button>
+                  <button 
+                    onClick={() => setSelectedSessions([])}
+                    className="text-[10px] text-muted hover:text-white font-bold uppercase tracking-widest transition-colors"
+                  >
+                    Clear All
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[400px] overflow-y-auto pr-2 preview-scrollbar">
+                {currentEntity.sessions.map((s, idx) => (
+                  <label 
+                    key={idx} 
+                    className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer group ${
+                      selectedSessions.includes(idx) 
+                        ? 'bg-accent/10 border-accent/30 text-accent' 
+                        : 'bg-white/5 border-white/10 text-muted hover:bg-white/10 hover:border-white/20'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
+                        selectedSessions.includes(idx) ? 'bg-accent border-accent' : 'bg-black/40 border-white/20 group-hover:border-white/40'
+                      }`}>
+                        {selectedSessions.includes(idx) && <Check className="w-3 h-3 text-black" />}
+                      </div>
+                      <input 
+                        type="checkbox"
+                        className="hidden"
+                        checked={selectedSessions.includes(idx)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedSessions([...selectedSessions, idx].sort((a, b) => a - b));
+                          } else {
+                            setSelectedSessions(selectedSessions.filter(i => i !== idx));
+                          }
+                        }}
+                      />
+                      <span className="text-[11px] font-bold truncate max-w-[140px]">{s.name}</span>
+                    </div>
+                    <Badge color={selectedSessions.includes(idx) ? 'accent' : 'accent'}>
+                      {s.size}
+                    </Badge>
+                  </label>
+                ))}
+              </div>
+
+              <div className="pt-6 border-t border-white/10 flex justify-between items-center">
+                <div className="text-[10px] text-muted font-bold uppercase tracking-widest">
+                  Total selected: <span className="text-accent">{selectedSessions.reduce((acc, idx) => acc + currentEntity.sessions[idx].size, 0)}</span> profiles
+                </div>
+                <button 
+                  onClick={() => setShowSessionModal(false)}
+                  className="px-6 py-2 bg-accent text-black font-bold rounded-xl hover:bg-accent/90 transition-all text-xs uppercase tracking-widest"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
           </Modal>
         )}
         {showPresetModal && (
@@ -1279,7 +1338,7 @@ const Reporting = ({
     id, 
     label, 
     icon: Icon, 
-    colorClass = 'text-muted hover:text-white border-white/10 bg-white/5 hover:bg-white/10' 
+    colorClass = 'text-muted hover:text-white border-white/5 bg-white/[0.02] hover:bg-white/[0.05]' 
   }: { 
     onClick: () => void, 
     id: string, 
@@ -1292,9 +1351,9 @@ const Reporting = ({
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
       disabled={filteredData.length === 0}
-      className={`px-3 py-1.5 border rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 disabled:opacity-30 whitespace-nowrap relative overflow-hidden ${
+      className={`px-3 py-2 border rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 disabled:opacity-30 whitespace-nowrap relative overflow-hidden ${
         copiedKey === id
-          ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
+          ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400'
           : colorClass
       }`}
     >
@@ -1339,13 +1398,13 @@ const Reporting = ({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4 text-accent" />
-                <h3 className="text-xs uppercase tracking-widest text-accent font-bold">Report Input</h3>
+                <h3 className="text-xs uppercase tracking-widest text-accent font-bold">1. Report Input</h3>
               </div>
               <button 
                 onClick={() => fileInputRef.current?.click()}
-                className="p-1.5 hover:bg-white/5 rounded-lg text-muted hover:text-accent transition-colors flex items-center gap-2 text-[10px] uppercase font-bold tracking-tighter"
+                className="p-1.5 hover:bg-white/5 rounded-lg text-muted hover:text-accent transition-colors flex items-center gap-2 text-[9px] uppercase font-black tracking-widest"
               >
-                <Download className="w-3 h-3 rotate-180" /> Upload File
+                <Download className="w-3 h-3 rotate-180" /> Upload
               </button>
               <input 
                 type="file" 
@@ -1361,134 +1420,129 @@ const Reporting = ({
                 placeholder="Paste report data here or drag & drop a file..."
                 value={rawInput}
                 onChange={e => setRawInput(e.target.value)}
-                className="flex-1 min-h-[300px]"
+                className="flex-1 min-h-[250px] text-[10px]"
               />
               {isDragging && (
-                <div className="absolute inset-0 bg-accent/10 backdrop-blur-[2px] border-2 border-dashed border-accent rounded-xl flex flex-col items-center justify-center text-accent animate-pulse">
+                <div className="absolute inset-0 bg-accent/10 backdrop-blur-[2px] border-2 border-dashed border-accent rounded-2xl flex flex-col items-center justify-center text-accent animate-pulse">
                   <Download className="w-12 h-12 mb-4 rotate-180" />
-                  <p className="font-bold uppercase tracking-widest text-sm">Drop file to upload</p>
+                  <p className="font-black uppercase tracking-widest text-xs">Drop file to upload</p>
                 </div>
               )}
             </div>
 
             <button 
               onClick={() => parseReport()}
-              className="w-full py-4 bg-accent text-white rounded-xl font-bold hover:bg-accent/80 transition-all flex items-center justify-center gap-2 shadow-lg shadow-accent/20"
+              className="w-full py-4 bg-accent hover:bg-accent/90 text-black rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all shadow-[0_4px_16px_rgba(0,255,153,0.2)] flex items-center justify-center gap-2"
             >
               <Activity className="w-4 h-4" /> Analyze Report
             </button>
           </Card>
 
           {/* Replacement Tool */}
+          {/* Replacement Tool */}
           <Card id="replacement-tool" className="flex flex-col gap-6">
             <div className="flex items-center gap-2">
               <Shield className="w-4 h-4 text-emerald-400" />
-              <h3 className="text-xs uppercase tracking-widest text-emerald-400 font-bold">Proxy Replacement</h3>
+              <h3 className="text-xs uppercase tracking-widest text-emerald-400 font-bold">2. Proxy Replacement</h3>
             </div>
             
             <div className="space-y-4">
               <div>
                 <Label>Target Proxy Class (IP Prefix)</Label>
                 <div className="relative group">
-                  <ShieldAlert className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted group-focus-within:text-emerald-400 transition-colors" />
-                  <input 
-                    type="text"
+                  <ShieldAlert className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within:text-emerald-400 transition-colors" />
+                  <Input 
                     placeholder="e.g. 192.73.17"
                     value={targetProxyClass}
                     onChange={e => setTargetProxyClass(e.target.value)}
-                    className="w-full bg-black/20 border border-white/5 rounded-lg pl-8 pr-10 py-2 text-xs outline-none focus:border-emerald-500/30 transition-all font-mono"
+                    className="pl-10 text-xs font-mono"
                   />
                   {targetProxyClass && (
                     <button 
                       onClick={() => setTargetProxyClass('')}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-white/5 rounded text-muted hover:text-white transition-colors"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-white transition-colors"
                     >
-                      <X className="w-3 h-3" />
+                      <X className="w-4 h-4" />
                     </button>
                   )}
                 </div>
-                <p className="mt-1.5 text-[9px] text-muted italic">
+                <p className="mt-2 text-[9px] text-muted leading-relaxed">
                   {targetProxyClass.trim() 
                     ? `Targeting ${reportData.filter(i => i.proxy?.split(':')[0].startsWith(targetProxyClass.trim())).length} profiles matching class "${targetProxyClass}".`
                     : `Targeting all ${filteredData.length} currently filtered profiles.`}
+                  <br />
+                  <span className="text-emerald-400/70 font-bold uppercase tracking-tighter text-[8px]">Tip: Click a proxy in the table to auto-fill.</span>
                 </p>
-                <p className="text-[8px] text-muted/50 mt-1 uppercase tracking-tighter font-bold">Tip: Click a proxy in the table to auto-fill its class.</p>
               </div>
 
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <Label className="mb-0">Replacement Template</Label>
-                <div className="flex gap-2">
-                  {['profile#proxy', 'profile#session#proxy'].map(t => (
-                    <button 
-                      key={t}
-                      onClick={() => setReplacementTemplate(t)}
-                      className="text-[9px] px-2 py-0.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-muted hover:text-white transition-all uppercase font-bold"
-                    >
-                      {t}
-                    </button>
-                  ))}
+                  <div className="flex gap-1">
+                    {['profile#proxy', 'profile#session#proxy'].map(t => (
+                      <button 
+                        key={t}
+                        onClick={() => setReplacementTemplate(t)}
+                        className="text-[8px] px-1.5 py-0.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-muted hover:text-white transition-all uppercase font-black"
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <Input 
+                  value={replacementTemplate}
+                  onChange={e => setReplacementTemplate(e.target.value)}
+                  placeholder="e.g. profile#proxy"
+                  className="text-xs font-mono"
+                />
+                <p className="mt-1.5 text-[9px] text-muted italic">Placeholders: <span className="text-emerald-400">profile</span>, <span className="text-emerald-400">session</span>, <span className="text-emerald-400">proxy</span></p>
+              </div>
+
+              <div>
+                <Label>New Proxies</Label>
+                <TextArea 
+                  placeholder="Paste new proxies here..."
+                  value={newProxyList}
+                  onChange={e => setNewProxyList(e.target.value)}
+                  className="min-h-[120px] text-[10px]"
+                />
+                <div className="flex justify-between items-center px-1 py-1 mt-1 border-b border-white/5">
+                  <span className="text-[9px] text-muted uppercase font-bold tracking-widest">Count</span>
+                  <span className="text-xs font-black text-accent">{newProxyList.split('\n').filter(p => p.trim()).length}</span>
                 </div>
               </div>
-              <input 
-                type="text"
-                value={replacementTemplate}
-                onChange={e => setReplacementTemplate(e.target.value)}
-                placeholder="e.g. profile#proxy"
-                className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-2 text-xs outline-none focus:border-emerald-500/30 transition-all font-mono"
-              />
-              <p className="mt-1.5 text-[9px] text-muted italic">Available placeholders: <span className="text-emerald-400 font-bold">profile</span>, <span className="text-emerald-400 font-bold">session</span>, <span className="text-emerald-400 font-bold">proxy</span></p>
-            </div>
-          </div>
 
-          <div>
-              <Label>New Proxies (One per line)</Label>
-              <TextArea 
-                placeholder="Paste new proxies here..."
-                value={newProxyList}
-                onChange={e => setNewProxyList(e.target.value)}
-                className="min-h-[150px]"
-              />
-              <div className="flex justify-between items-center px-1 py-1 mt-1 border-b border-white/5">
-                <span className="text-[9px] text-muted uppercase font-bold tracking-widest">Proxies Provided</span>
-                <span className="text-xs font-black text-accent">{newProxyList.split('\n').filter(p => p.trim()).length}</span>
-              </div>
-              <p className="text-[9px] text-muted mt-2 italic">These will be mapped to the filtered profiles below.</p>
+              <button 
+                onClick={generateReplacement}
+                disabled={filteredData.length === 0}
+                className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-black rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all disabled:opacity-30 flex items-center justify-center gap-2"
+              >
+                <Plus className="w-4 h-4" /> Generate Output
+              </button>
             </div>
-
-            <button 
-              onClick={generateReplacement}
-              disabled={filteredData.length === 0}
-              className="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-500 transition-all flex items-center justify-center gap-2 disabled:opacity-30"
-            >
-              <Plus className="w-4 h-4" /> Generate Replacement Output
-            </button>
 
             {replacementOutput && (
-              <div className="space-y-3 animate-in fade-in zoom-in-95 duration-300">
-                <div className="p-3 bg-black/40 rounded-xl border border-white/5 font-mono text-[10px] text-emerald-400 whitespace-pre max-h-[200px] overflow-auto">
-                  {replacementOutput}
+              <div className="space-y-4 animate-in fade-in zoom-in-95 duration-300 pt-4 border-t border-white/5">
+                <div className="flex items-center justify-between">
+                  <Label className="mb-0">Output</Label>
+                  <CopyButton 
+                    onClick={copyReplacement} 
+                    id="replacement" 
+                    label="Copy Output" 
+                    icon={Copy}
+                    colorClass="text-emerald-400 hover:text-emerald-400 border-emerald-400/20 bg-emerald-400/5 hover:bg-emerald-400/10"
+                  />
                 </div>
-                
+                <TextArea 
+                  readOnly
+                  value={replacementOutput}
+                  className="min-h-[120px] text-[10px] bg-black/40"
+                />
                 <div className="flex justify-between items-center px-1 py-1 border-b border-white/5">
                   <span className="text-[9px] text-muted uppercase font-bold tracking-widest">Profiles Affected</span>
                   <span className="text-xs font-black text-emerald-400">{replacementOutput.split('\n').filter(Boolean).length}</span>
                 </div>
-
-                <button 
-                  onClick={copyReplacement}
-                  className={`w-full py-2 border rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
-                    copiedKey === 'replacement' 
-                      ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' 
-                      : 'bg-white/5 hover:bg-white/10 border-white/10 text-white'
-                  }`}
-                >
-                  {copiedKey === 'replacement' ? (
-                    <><Check className="w-3 h-3" /> Copied!</>
-                  ) : (
-                    <><Copy className="w-3 h-3" /> Copy Output</>
-                  )}
-                </button>
               </div>
             )}
           </Card>
@@ -1691,21 +1745,21 @@ const Modal = ({ title, children, onClose }: { title: string, children: React.Re
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       onClick={onClose}
-      className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+      className="absolute inset-0 bg-black/80 backdrop-blur-md"
     />
     <motion.div 
       initial={{ opacity: 0, scale: 0.95, y: 20 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95, y: 20 }}
-      className="relative w-full max-w-2xl bg-header-bg border border-white/10 rounded-3xl shadow-2xl overflow-hidden"
+      className="relative w-full max-w-2xl bg-[#0a0f1e] border border-white/10 rounded-[2.5rem] shadow-[0_32px_128px_rgba(0,0,0,0.8)] overflow-hidden"
     >
-      <div className="px-8 py-6 border-b border-white/10 flex justify-between items-center">
-        <h2 className="text-lg font-bold text-white">{title}</h2>
-        <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-xl text-muted hover:text-white transition-colors">
-          <X className="w-5 h-5" />
+      <div className="px-10 py-8 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+        <h2 className="text-xl font-black text-white uppercase tracking-widest">{title}</h2>
+        <button onClick={onClose} className="p-3 hover:bg-white/5 rounded-2xl text-muted hover:text-white transition-all">
+          <X className="w-6 h-6" />
         </button>
       </div>
-      <div className="p-8 max-h-[70vh] overflow-auto preview-scrollbar">
+      <div className="p-10 max-h-[75vh] overflow-auto preview-scrollbar">
         {children}
       </div>
     </motion.div>
