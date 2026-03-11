@@ -365,40 +365,52 @@ export default function App() {
           accumulatedBefore: accumulated - last.size
         };
       } else if (session === "CUSTOM") {
-        let accumulated = 0;
+        let runAccumulated = 0;
         for (let i = 0; i < selectedSessions.length; i++) {
           const sessionIdx = selectedSessions[i];
           const s = currentEntity.sessions[sessionIdx];
           if (!s) continue;
-          if (index < accumulated + s.size) {
+          if (index < runAccumulated + s.size) {
+            let trueAccumulated = 0;
+            for (let j = 0; j < sessionIdx; j++) {
+              trueAccumulated += currentEntity.sessions[j].size;
+            }
             return {
               name: s.name,
               index: sessionIdx,
-              localIndex: index - accumulated,
+              localIndex: index - runAccumulated,
               size: s.size,
-              accumulatedBefore: accumulated
+              accumulatedBefore: trueAccumulated
             };
           }
-          accumulated += s.size;
+          runAccumulated += s.size;
         }
         const lastIdx = selectedSessions[selectedSessions.length - 1] || 0;
         const last = currentEntity.sessions[lastIdx] || currentEntity.sessions[0];
+        let trueAccumulated = 0;
+        for (let j = 0; j < lastIdx; j++) {
+          trueAccumulated += currentEntity.sessions[j].size;
+        }
         return { 
           name: last?.name || 'Unknown', 
           index: lastIdx, 
-          localIndex: index - (accumulated - (last?.size || 0)),
+          localIndex: index - (runAccumulated - (last?.size || 0)),
           size: last?.size || 0,
-          accumulatedBefore: accumulated - (last?.size || 0)
+          accumulatedBefore: trueAccumulated
         };
       } else {
         const idx = parseInt(session);
         const s = currentEntity.sessions[idx] || currentEntity.sessions[0];
+        let trueAccumulated = 0;
+        for (let j = 0; j < idx; j++) {
+          trueAccumulated += currentEntity.sessions[j].size;
+        }
         return {
           name: s?.name || 'Unknown',
           index: idx,
           localIndex: index,
           size: blockSize || s?.size || 0,
-          accumulatedBefore: 0
+          accumulatedBefore: trueAccumulated
         };
       }
     };
@@ -410,11 +422,9 @@ export default function App() {
       for (let i = 0; i < rangeCount; i++) {
         const profileId = rangeFrom + i;
         const sessionInfo = getSessionInfo(i);
+        const absoluteIndex = sessionInfo.accumulatedBefore + sessionInfo.localIndex;
         
-        const isBulk = uas.length > sessionInfo.size;
-        const dataOffset = (session !== "ALL" && session !== "CUSTOM" && isBulk) ? (sessionInfo.index * sessionInfo.size) : 0;
-        
-        const ua = uas[(dataOffset + i) % uas.length];
+        const ua = uas[absoluteIndex % uas.length];
         const version = extractVer(ua);
 
         generated.push(formatResult({
@@ -435,12 +445,10 @@ export default function App() {
       for (let i = 0; i < rangeCount; i++) {
         const profileId = rangeFrom + i;
         const sessionInfo = getSessionInfo(i);
+        const absoluteIndex = sessionInfo.accumulatedBefore + sessionInfo.localIndex;
 
-        const isBulk = proxies.length > sessionInfo.size;
-        const dataOffset = (session !== "ALL" && session !== "CUSTOM" && isBulk) ? (sessionInfo.index * sessionInfo.size) : 0;
-
-        const tag = tags[(dataOffset + i) % tags.length];
-        const proxy = proxies[(dataOffset + i) % proxies.length];
+        const tag = tags[absoluteIndex % tags.length];
+        const proxy = proxies[absoluteIndex % proxies.length];
 
         generated.push(formatResult({
           id: profileId.toString(),
