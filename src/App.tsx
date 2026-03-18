@@ -39,6 +39,9 @@ interface EntityConfig {
   sessions: SessionConfig[];
   selectedSessions?: number[];
   selectedSessionMode?: string;
+  uaList?: string;
+  tagList?: string;
+  proxyList?: string;
 }
 
 const DEFAULT_ENTITIES: EntityConfig[] = [
@@ -187,9 +190,9 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
   
-  const [uaList, setUaList] = useState<string>('');
-  const [tagList, setTagList] = useState<string>('');
-  const [proxyList, setProxyList] = useState<string>('');
+  const [uaList, setUaList] = useState<string>(entities[0]?.uaList || '');
+  const [tagList, setTagList] = useState<string>(entities[0]?.tagList || '');
+  const [proxyList, setProxyList] = useState<string>(entities[0]?.proxyList || '');
   
   const [searchQuery, setSearchQuery] = useState('');
   const [copied, setCopied] = useState(false);
@@ -235,6 +238,11 @@ export default function App() {
       setSession('ALL');
     }
 
+    // Load saved lists for this entity
+    setUaList(currentEntity.uaList || '');
+    setTagList(currentEntity.tagList || '');
+    setProxyList(currentEntity.proxyList || '');
+
     // Validate session selection
     if (session !== 'ALL' && session !== 'CUSTOM') {
       const idx = parseInt(session);
@@ -252,9 +260,16 @@ export default function App() {
     }
 
     setEntities(prev => prev.map(e => 
-      e.id === entityId ? { ...e, selectedSessions, selectedSessionMode: session } : e
+      e.id === entityId ? { 
+        ...e, 
+        selectedSessions, 
+        selectedSessionMode: session,
+        uaList,
+        tagList,
+        proxyList
+      } : e
     ));
-  }, [selectedSessions, session, entityId]);
+  }, [selectedSessions, session, entityId, uaList, tagList, proxyList]);
 
   // Sync tempSessions when modal opens
   useEffect(() => {
@@ -532,7 +547,7 @@ export default function App() {
   };
 
   const updateEntity = (updated: EntityConfig) => {
-    setEntities(entities.map(e => e.id === updated.id ? updated : e));
+    setEntities(entities.map(e => e.id === updated.id ? { ...e, ...updated } : e));
   };
 
   const deleteEntity = (id: string) => {
@@ -841,7 +856,7 @@ export default function App() {
                 <div className="flex items-center justify-between mb-5">
                   <div className="flex items-center gap-2">
                     <Layers className="w-4 h-4 text-accent" />
-                    <h3 className="text-xs uppercase tracking-widest text-accent font-bold">3. Data Input</h3>
+                    <h3 className="text-xs uppercase tracking-widest text-accent font-bold">3. Data Input - {currentEntity.name}</h3>
                   </div>
                   <button 
                     onClick={() => {
