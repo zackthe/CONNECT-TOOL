@@ -167,10 +167,10 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  const [entityId, setEntityId] = useState<string>(entities[0].id);
-  const [session, setSession] = useState<string>(entities[0].selectedSessionMode || 'ALL');
-  const [selectedSessions, setSelectedSessions] = useState<number[]>(entities[0].selectedSessions || []);
-  const [blockSize, setBlockSize] = useState<number>(entities[0].sessions[0].size);
+  const [entityId, setEntityId] = useState<string>(entities[0]?.id || '');
+  const [session, setSession] = useState<string>(entities[0]?.selectedSessionMode || 'ALL');
+  const [selectedSessions, setSelectedSessions] = useState<number[]>(entities[0]?.selectedSessions || []);
+  const [blockSize, setBlockSize] = useState<number>(entities[0]?.sessions?.[0]?.size || 500);
   const [rangeMode, setRangeMode] = useState<RangeMode>('continuous');
   const [baseId, setBaseId] = useState<number>(1);
   const [view, setView] = useState<View>('connect');
@@ -178,7 +178,7 @@ export default function App() {
   const [reportData, setReportData] = useState<ReportItem[]>([]);
   const [newProxyList, setNewProxyList] = useState('');
   const [rangeFrom, setRangeFrom] = useState<number>(1);
-  const [rangeCount, setRangeCount] = useState<number>(entities[0].sessions.reduce((acc, s) => acc + s.size, 0));
+  const [rangeCount, setRangeCount] = useState<number>(entities[0]?.sessions?.reduce((acc, s) => acc + (s?.size || 0), 0) || 0);
   const [mode, setMode] = useState<Mode>('ua');
   const [template, setTemplate] = useState<string>('{id}#{data}#{extra}');
   
@@ -282,7 +282,7 @@ export default function App() {
     const start = baseId || 1;
 
     if (session === 'ALL') {
-      const totalSize = currentEntity.sessions.reduce((acc, s) => acc + s.size, 0);
+      const totalSize = currentEntity.sessions.reduce((acc, s) => acc + (s?.size || 0), 0);
       setRangeCount(totalSize);
       setRangeFrom(start);
     } else if (session === 'CUSTOM') {
@@ -301,7 +301,7 @@ export default function App() {
       if (rangeMode === 'continuous') {
         const previousSize = currentEntity.sessions
           .slice(0, idx)
-          .reduce((acc, s) => acc + s.size, 0);
+          .reduce((acc, s) => acc + (s?.size || 0), 0);
         setRangeFrom(start + previousSize);
       } else {
         setRangeFrom(start);
@@ -345,24 +345,24 @@ export default function App() {
         let accumulated = 0;
         for (let i = 0; i < currentEntity.sessions.length; i++) {
           const s = currentEntity.sessions[i];
-          if (index < accumulated + s.size) {
+          if (index < accumulated + (s?.size || 0)) {
             return {
-              name: s.name,
+              name: s?.name || 'Unknown',
               index: i,
               localIndex: index - accumulated,
-              size: s.size,
+              size: s?.size || 0,
               accumulatedBefore: accumulated
             };
           }
-          accumulated += s.size;
+          accumulated += (s?.size || 0);
         }
         const last = currentEntity.sessions[currentEntity.sessions.length - 1];
         return { 
-          name: last.name, 
+          name: last?.name || 'Unknown', 
           index: currentEntity.sessions.length - 1, 
-          localIndex: index - (accumulated - last.size),
-          size: last.size,
-          accumulatedBefore: accumulated - last.size
+          localIndex: index - (accumulated - (last?.size || 0)),
+          size: last?.size || 0,
+          accumulatedBefore: accumulated - (last?.size || 0)
         };
       } else if (session === "CUSTOM") {
         let runAccumulated = 0;
@@ -370,26 +370,26 @@ export default function App() {
           const sessionIdx = selectedSessions[i];
           const s = currentEntity.sessions[sessionIdx];
           if (!s) continue;
-          if (index < runAccumulated + s.size) {
+          if (index < runAccumulated + (s?.size || 0)) {
             let trueAccumulated = 0;
             for (let j = 0; j < sessionIdx; j++) {
-              trueAccumulated += currentEntity.sessions[j].size;
+              trueAccumulated += (currentEntity.sessions[j]?.size || 0);
             }
             return {
-              name: s.name,
+              name: s?.name || 'Unknown',
               index: sessionIdx,
               localIndex: index - runAccumulated,
-              size: s.size,
+              size: s?.size || 0,
               accumulatedBefore: trueAccumulated
             };
           }
-          runAccumulated += s.size;
+          runAccumulated += (s?.size || 0);
         }
         const lastIdx = selectedSessions[selectedSessions.length - 1] || 0;
         const last = currentEntity.sessions[lastIdx] || currentEntity.sessions[0];
         let trueAccumulated = 0;
         for (let j = 0; j < lastIdx; j++) {
-          trueAccumulated += currentEntity.sessions[j].size;
+          trueAccumulated += (currentEntity.sessions[j]?.size || 0);
         }
         return { 
           name: last?.name || 'Unknown', 
@@ -403,7 +403,7 @@ export default function App() {
         const s = currentEntity.sessions[idx] || currentEntity.sessions[0];
         let trueAccumulated = 0;
         for (let j = 0; j < idx; j++) {
-          trueAccumulated += currentEntity.sessions[j].size;
+          trueAccumulated += (currentEntity.sessions[j]?.size || 0);
         }
         return {
           name: s?.name || 'Unknown',
@@ -682,7 +682,7 @@ export default function App() {
                         {selectedSessions.length} sessions selected
                       </span>
                       <span className="text-[10px] text-muted font-mono">
-                        {selectedSessions.reduce((acc, idx) => acc + currentEntity.sessions[idx].size, 0)} profiles
+                        {selectedSessions.reduce((acc, idx) => acc + (currentEntity.sessions[idx]?.size || 0), 0)} profiles
                       </span>
                     </div>
                   )}
@@ -908,9 +908,19 @@ export default function App() {
             <Card className="flex flex-col h-full min-h-[700px]">
               <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 mb-6">
                 <div className="flex-1 w-full">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Database className="w-4 h-4 text-accent" />
-                    <h3 className="text-xs uppercase tracking-widest text-accent font-bold">Results</h3>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Database className="w-4 h-4 text-accent" />
+                      <h3 className="text-xs uppercase tracking-widest text-accent font-bold">Results</h3>
+                    </div>
+                    <button 
+                      onClick={handleCopy}
+                      disabled={filteredResults.length === 0}
+                      className={`px-5 py-2 border rounded-xl text-[10px] font-bold transition-all flex items-center gap-2 shadow-[0_0_20px_rgba(106,166,255,0.15)] active:scale-95 ${copied ? 'bg-emerald-500 text-white border-emerald-500 shadow-[0_0_25px_rgba(16,185,129,0.5)]' : 'bg-[#1c253d] border-white/10 text-muted hover:text-white hover:bg-[#253152] hover:border-accent/50 hover:shadow-[0_0_25px_rgba(106,166,255,0.3)]'} disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copied ? 'COPIED!' : 'COPY RESULTS'}
+                    </button>
                   </div>
                   <div className="relative w-full max-w-md">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
@@ -962,7 +972,7 @@ export default function App() {
                 <button 
                   onClick={handleCopy}
                   disabled={filteredResults.length === 0}
-                  className={`px-6 py-3 border border-white/10 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${copied ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-[#1c253d] text-muted hover:text-white hover:bg-[#253152]'} disabled:opacity-50 disabled:cursor-not-allowed`}
+                  className={`px-6 py-3 border rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(106,166,255,0.1)] ${copied ? 'bg-emerald-500 text-white border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.4)]' : 'bg-[#1c253d] border-white/10 text-muted hover:text-white hover:bg-[#253152] hover:border-accent/50 hover:shadow-[0_0_20px_rgba(106,166,255,0.2)]'} disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                   {copied ? 'Copied!' : 'Copy Results'}
@@ -1065,7 +1075,7 @@ export default function App() {
                       <span className="text-[9px] text-muted uppercase font-bold">Size:</span>
                       <input 
                         type="number"
-                        value={s.size}
+                        value={s?.size || 0}
                         onChange={(e) => {
                           const newVal = parseInt(e.target.value) || 0;
                           const updated = [...tempSessions];
@@ -1151,6 +1161,30 @@ export default function App() {
       <footer className="py-8 text-center text-[10px] text-muted uppercase tracking-[0.3em] font-medium opacity-50">
         ECM Synchronized Connect &bull; v2.0 &bull; {new Date().getFullYear()}
       </footer>
+
+      {/* Floating Copy Button */}
+      <AnimatePresence>
+        {view === 'connect' && filteredResults.length > 0 && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.5, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.5, y: 20 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleCopy}
+            className={`fixed bottom-10 right-10 z-[60] px-8 py-5 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.6)] flex items-center gap-3 transition-all border border-white/10 backdrop-blur-md ${
+              copied 
+                ? 'bg-emerald-500 text-white shadow-emerald-500/40 border-emerald-400/50' 
+                : 'bg-accent text-black shadow-accent/40 border-white/20'
+            }`}
+          >
+            {copied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+            <span className="font-black uppercase tracking-widest text-[11px]">
+              {copied ? 'Copied!' : 'Copy Results'}
+            </span>
+          </motion.button>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -1661,8 +1695,8 @@ const Reporting = ({
           </div>
 
           {/* Table Card */}
-          <Card className="flex flex-col min-h-[600px]">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+          <Card className="flex flex-col min-h-[600px] relative">
+            <div className="sticky top-[-24px] z-30 bg-[#0a0f1e]/95 backdrop-blur-sm -mx-6 px-6 py-4 mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-white/5 rounded-t-3xl">
               <div className="flex items-center gap-4">
                 <div className="flex bg-black/20 p-1 rounded-lg border border-white/5">
                   {(['all', 'closed', 'proxy_down', 'failed', 'disconnected'] as const).map(f => (
@@ -1893,7 +1927,7 @@ const EntityManager = ({ entities, onAdd, onUpdate, onDelete }: { entities: Enti
     setEditingId(e.id);
     setName(e.name);
     setDefaultSize(e.defaultSize || 500);
-    setSessionsInput(e.sessions.map(s => `${s.name}${s.size !== (e.defaultSize || 500) ? `:${s.size}` : ''}`).join('\n'));
+    setSessionsInput(e.sessions.map(s => `${s?.name || 'Unknown'}${(s?.size || 0) !== (e.defaultSize || 500) ? `:${s?.size || 0}` : ''}`).join('\n'));
     // Scroll to form
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -1975,12 +2009,12 @@ const EntityManager = ({ entities, onAdd, onUpdate, onDelete }: { entities: Enti
                 {editingId === e.id && <span className="text-[8px] bg-accent px-1.5 py-0.5 rounded uppercase tracking-tighter">Editing</span>}
               </div>
               <div className="text-[10px] text-muted">
-                {e.sessions.length} sessions &bull; Total: {e.sessions.reduce((acc, s) => acc + s.size, 0)}
+                {e.sessions.length} sessions &bull; Total: {e.sessions.reduce((acc, s) => acc + (s?.size || 0), 0)}
               </div>
               <div className="flex flex-wrap gap-1 mt-2">
                 {e.sessions.slice(0, 5).map((s, i) => (
                   <span key={i} className="text-[8px] bg-white/10 px-1.5 py-0.5 rounded text-muted">
-                    {s.name} ({s.size})
+                    {s?.name || 'Unknown'} ({s?.size || 0})
                   </span>
                 ))}
                 {e.sessions.length > 5 && <span className="text-[8px] text-muted">+{e.sessions.length - 5} more</span>}
